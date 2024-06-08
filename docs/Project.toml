@@ -1,0 +1,3 @@
+[deps]
+BernsteinBasis = "c5792ece-27e2-4f98-a823-f784d6748802"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"

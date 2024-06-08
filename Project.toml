@@ -1,0 +1,13 @@
+name = "BernsteinBasis"
+uuid = "c5792ece-27e2-4f98-a823-f784d6748802"
+authors = ["Vincent X. Wang <vw12@rice.edu>"]
+version = "1.0.0-DEV"
+
+[compat]
+julia = "1.7"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
