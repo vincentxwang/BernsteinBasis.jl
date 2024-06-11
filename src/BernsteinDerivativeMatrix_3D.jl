@@ -1,10 +1,10 @@
 """
-    BernsteinDerivativeMatrix_3D_r{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the first Cartesian coordinate r in the 3D Bernstein basis.
+Derivative matrix with respect to the first Cartesian coordinate r in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64} 
     N::Int
@@ -14,12 +14,12 @@ struct BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64}
 end
 
 """
-    BernsteinDerivativeMatrix_3D_s{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the second Cartesian coordinate s in the 3D Bernstein basis.
+Derivative matrix with respect to the second Cartesian coordinate s in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
     N::Int
@@ -29,12 +29,12 @@ struct BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
 end
 
 """
-    BernsteinDerivativeMatrix_3D_t{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the third Cartesian coordinate t in the 3D Bernstein basis.
+Derivative matrix with respect to the third Cartesian coordinate t in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
     N::Int
