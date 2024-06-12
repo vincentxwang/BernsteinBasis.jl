@@ -3,8 +3,16 @@ using BenchmarkTools
 using LinearAlgebra
 using SparseArrays
 
-"""======= stuff to get L0 and tests to work ========="""
+"""
+    ElevationMatrix{N} <: AbstractMatrix{Float64}
 
+Two-dimensional degree elevation operator for Bernstein polynomials. Expresses polynomials
+of degree ``N - 1`` as polynomials of degree ``N``.
+
+- Kirby, Robert C. (2016)
+  Fast inversion of the simplicial Bernstein mass matrix
+  [DOI: 10.1007/s00211-016-0795-0]https://doi.org/10.1007/s00211-016-0795-0
+"""
 struct ElevationMatrix{N} <: AbstractMatrix{Float64} end
 
 function Base.size(::ElevationMatrix{N}) where {N}
@@ -14,7 +22,8 @@ end
 """
     bernstein_2d_scalar_multiindex_lookup(N)
 
-Returns a vector that maps scalar indices -> multi-indices.
+Returns a vector that maps scalar indices to multi-indices of the ``N``-th degree Bernstein
+polynomials.
 """
 function bernstein_2d_scalar_multiindex_lookup(N)
     scalar_to_multiindex = [(i,j,N-i-j) for j in 0:N for i in 0:N-j]
@@ -31,8 +40,15 @@ function Base.getindex(::ElevationMatrix{N}, m, n) where {N}
     else return 0.0 end
 end
 
-"""end of elevation matrix"""
+"""
+    BernsteinLift
 
+Lift matrix for a single face on a standard tetrahedron.
+
+- Chan, Jesse and Tim Warburton (2017)
+  GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
+  [DOI: 10.48550/arXiv.1512.06025]https://doi.org/10.48550/arXiv.1512.06025
+"""
 mutable struct BernsteinLift 
     N::Int
     L0::SparseMatrixCSC{Float64, Int64}
@@ -42,7 +58,7 @@ mutable struct BernsteinLift
     E::Vector{Float64}
 end
 
-# assumes i,j >= 0
+# Assumes i,j >= 0
 ij_to_linear(i,j,offset) = i + offset[j+1] + 1 
 
 function tri_offsets(N)
@@ -80,15 +96,13 @@ function BernsteinLift(N)
     BernsteinLift(N, L0, tri_offset_table, l_j(N), tet_offsets(N), zeros(Np))
 end
 
-L = BernsteinLift(7)
-
-# pass in offsets(N).
 """
     reduction_multiply!(out, N, x, offset)
 
-multiplies x by the bernstein reduction matrix: N -> N - 1
+Multiplies `x` by the Bernstein reduction matrix that maps from degree ``N`` polynomials to 
+``N - 1``.
 
-pass in tri_offsets(N) as offset
+`tri_offsets(N)` should be passed as the precomputed `offset` value.
 """
 function reduction_multiply!(out, N, x, offset)
     row = 1
@@ -108,7 +122,7 @@ end
 """
     fast_lift_multiply!(out, N, L0, x, offset, l_j, E)
 
-multiply x by nice lift matrix face
+Multiply `x`` by nice lift matrix face
 
 L0 - as defined in paper
 x - input vector
