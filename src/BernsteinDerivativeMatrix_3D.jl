@@ -1,10 +1,10 @@
 """
-    BernsteinDerivativeMatrix_3D_r{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the first Cartesian coordinate r in the 3D Bernstein basis.
+Derivative matrix with respect to the first Cartesian coordinate r in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64} 
     N::Int
@@ -14,12 +14,12 @@ struct BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64}
 end
 
 """
-    BernsteinDerivativeMatrix_3D_s{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the second Cartesian coordinate s in the 3D Bernstein basis.
+Derivative matrix with respect to the second Cartesian coordinate s in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
     N::Int
@@ -29,12 +29,12 @@ struct BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
 end
 
 """
-    BernsteinDerivativeMatrix_3D_t{N} <: AbstractMatrix{Float64}
+    BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
 
-    Derivative matrix with respect to the third Cartesian coordinate t in the 3D Bernstein basis.
+Derivative matrix with respect to the third Cartesian coordinate t in the 3D Bernstein basis.
 
-    # Fields
-    - `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+# Fields
+- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
 """
 struct BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
     N::Int
@@ -52,29 +52,6 @@ end
 Base.size(Ds::BernsteinDerivativeMatrix_3D_s) = size(BernsteinDerivativeMatrix_3D_r(Ds.N))
 Base.size(Dt::BernsteinDerivativeMatrix_3D_t) = size(BernsteinDerivativeMatrix_3D_r(Dt.N))
 
-function tri_offsets(N)
-    tup = [0]
-    count = 0
-    for i in 1:20
-        count += N + 2 - i
-        push!(tup, count)
-    end
-    return tuple(tup...)
-end
-
-function tet_offsets(N)
-    tup = [0]
-    count = 0
-    for i in 1:20
-        count += div((N + 2 - i) * (N + 3 - i), 2)
-        push!(tup, count)
-    end
-    return tuple(tup...)
-end
-
-function ijk_to_linear(i,j,k, tri_offsets, tet_offsets)
-    return i + tri_offsets[j+1] + 1 + tet_offsets[k+1] - j * k
-end
 
 """
     get_coeff(i1, j1, k1, l1, i2, j2, k2, l2)
@@ -88,10 +65,6 @@ function get_coeff(i1, j1, k1, l1, i2, j2, k2, l2)
     elseif (i1 + 1, j1, k1 - 1, l1) == (i2, j2, k2, l2) return k1
     elseif (i1 + 1, j1, k1, l1 - 1) == (i2, j2, k2, l2) return l1
     else return 0 end
-end
-
-function linear_to_ijkl_lookup(N)
-    return [(i, j, k, N - i - j - k) for k in 0:N for j in 0:N - k for i in 0:N - j - k]
 end
 
 function Base.getindex(Dr::BernsteinDerivativeMatrix_3D_r, m, n)
