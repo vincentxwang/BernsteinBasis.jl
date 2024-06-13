@@ -1,45 +1,3 @@
-using Test
-using BenchmarkTools
-using LinearAlgebra
-using SparseArrays
-
-"""
-    ElevationMatrix{N} <: AbstractMatrix{Float64}
-
-Two-dimensional degree elevation operator for Bernstein polynomials. Expresses polynomials
-of degree ``N - 1`` as polynomials of degree ``N``.
-
-- Kirby, Robert C. (2016)
-  Fast inversion of the simplicial Bernstein mass matrix
-  [DOI: 10.1007/s00211-016-0795-0]https://doi.org/10.1007/s00211-016-0795-0
-"""
-struct ElevationMatrix{N} <: AbstractMatrix{Float64} end
-
-function Base.size(::ElevationMatrix{N}) where {N}
-    return (div((N + 1) * (N + 2), 2), div(N * (N + 1), 2))
-end
-
-"""
-    bernstein_2d_scalar_multiindex_lookup(N)
-
-Returns a vector that maps scalar indices to multi-indices of the ``N``-th degree Bernstein
-polynomials.
-"""
-function bernstein_2d_scalar_multiindex_lookup(N)
-    scalar_to_multiindex = [(i,j,N-i-j) for j in 0:N for i in 0:N-j]
-    multiindex_to_scalar = Dict(zip(scalar_to_multiindex, collect(1:length(scalar_to_multiindex))))
-    return scalar_to_multiindex, multiindex_to_scalar
-end
-
-function Base.getindex(::ElevationMatrix{N}, m, n) where {N}
-    (i1,j1,k1) = bernstein_2d_scalar_multiindex_lookup(N)[1][m]
-    (i2,j2,k2) = bernstein_2d_scalar_multiindex_lookup(N-1)[1][n]
-    if ((i1, j1, k1) == (i2 + 1,j2,k2)) return (i2 + 1)/N
-    elseif ((i1, j1, k1) == (i2,j2 + 1,k2)) return (j2 + 1)/N
-    elseif ((i1, j1, k1) == (i2,j2,k2 + 1)) return (k2 + 1)/N
-    else return 0.0 end
-end
-
 """
     BernsteinLift
 
@@ -58,32 +16,6 @@ mutable struct BernsteinLift
     E::Vector{Float64}
 end
 
-# Assumes i,j >= 0
-ij_to_linear(i,j,offset) = i + offset[j+1] + 1 
-
-function tri_offsets(N)
-    tup = [0]
-    count = 0
-    for i in 1:20
-        count += N + 2 - i
-        push!(tup, count)
-    end
-    return tuple(tup...)
-end
-
-function tet_offsets(N)
-    tup = [0]
-    count = 0
-    for i in 1:20
-        count += div((N + 2 - i) * (N + 3 - i), 2)
-        push!(tup, count)
-    end
-    return tuple(tup...)
-end
-
-function ijk_to_linear(i,j,k, tri_offsets, tet_offsets)
-    return i + tri_offsets[j+1] + 1 + tet_offsets[k+1] - j * k
-end
 
 function l_j(N)
     return ntuple(j -> (j <= N) ? ((isodd(j) ? -1.0 : 1.0) * binomial(N, j) / (1.0 + j)) : 0.0, 20) 
@@ -112,7 +44,7 @@ function reduction_multiply!(out, N, x, offset)
             val = muladd((i+1), x[ij_to_linear(i+1, j, offset)], 0)
             val = muladd((j+1), x[ij_to_linear(i, j+1, offset)], val)
             val = muladd((k+1), x[ij_to_linear(i, j, offset)], val) # k + 1
-            out[row] = val/N # not sure why putting / N above is faster?
+            out[row] = val/N
             row += 1
         end
     end
@@ -138,7 +70,7 @@ function fast_lift_multiply!(out, N, L0, x, tri_offset_table, l_j, E)
     @inbounds for j in 1:N
         diff = div((N + 1 - j) * (N + 2 - j), 2)
         index2 = index1 + diff
-        # assign the next (N+1-j)(N+2-j)/2 entries as l_j * (E^N_{N_j})^T u^f
+        # Assign the next (N+1-j)(N+2-j)/2 entries as l_j * (E^N_{N_j})^T u^f
         out[(index1 + 1): index2] .= l_j[j] .* @view E[1:diff]
         if j < N
             index1 = index2
