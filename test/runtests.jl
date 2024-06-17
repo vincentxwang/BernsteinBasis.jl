@@ -14,7 +14,7 @@ using LinearAlgebra
     end
 end
 
-@testset "3D derivative matrix-vector multiplication" begin
+@testset "3D derivative matrix-matrix multiplication" begin
     for N in 1:6
         Np = div((N + 1) * (N + 2) * (N + 3), 6)
         x = rand(Float64, Np, Np)
