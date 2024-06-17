@@ -14,6 +14,12 @@ makedocs(;
     ),
     pages=[
         "Home" => "index.md",
+        "Notations and conventions" => "notation.md",
+        "Operators" => [
+            "Derivative" => "derivative.md"
+            "Lift" => "lift.md"
+        ],
+        "Reference" => "reference.md",
     ],
 )
 

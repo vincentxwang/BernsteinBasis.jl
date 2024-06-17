@@ -6,7 +6,7 @@ of degree ``N - 1`` as polynomials of degree ``N``.
 
 - Kirby, Robert C. (2016)
   Fast inversion of the simplicial Bernstein mass matrix
-  [DOI: 10.1007/s00211-016-0795-0]https://doi.org/10.1007/s00211-016-0795-0
+  [DOI: 10.1007/s00211-016-0795-0](https://doi.org/10.1007/s00211-016-0795-0)
 """
 struct ElevationMatrix{N} <: AbstractMatrix{Float64} end
 

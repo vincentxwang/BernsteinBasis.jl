@@ -1,10 +1,10 @@
 """
     BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64}
 
-Derivative matrix with respect to the first Cartesian coordinate r in the 3D Bernstein basis.
+Derivative matrix with respect to the first Cartesian coordinate ``r`` in the 3D Bernstein basis.
 
 # Fields
-- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+- `N::Int`: Order of Bernstein polynomials. Supports up to ``N = 20``.
 """
 struct BernsteinDerivativeMatrix_3D_r <: AbstractMatrix{Float64} 
     N::Int
@@ -16,10 +16,10 @@ end
 """
     BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
 
-Derivative matrix with respect to the second Cartesian coordinate s in the 3D Bernstein basis.
+Derivative matrix with respect to the second Cartesian coordinate ``s`` in the 3D Bernstein basis.
 
 # Fields
-- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+- `N::Int`: Order of Bernstein polynomials. Supports up to ``N = 20``.
 """
 struct BernsteinDerivativeMatrix_3D_s <: AbstractMatrix{Float64}
     N::Int
@@ -31,10 +31,10 @@ end
 """
     BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
 
-Derivative matrix with respect to the third Cartesian coordinate t in the 3D Bernstein basis.
+Derivative matrix with respect to the third Cartesian coordinate ``t`` in the 3D Bernstein basis.
 
 # Fields
-- `N::Int`: Order of Bernstein polynomials. Supports up to N = 20.
+- `N::Int`: Order of Bernstein polynomials. Supports up to ``N = 20``.
 """
 struct BernsteinDerivativeMatrix_3D_t <: AbstractMatrix{Float64}
     N::Int
@@ -52,12 +52,11 @@ end
 Base.size(Ds::BernsteinDerivativeMatrix_3D_s) = size(BernsteinDerivativeMatrix_3D_r(Ds.N))
 Base.size(Dt::BernsteinDerivativeMatrix_3D_t) = size(BernsteinDerivativeMatrix_3D_r(Dt.N))
 
-
 """
     get_coeff(i1, j1, k1, l1, i2, j2, k2, l2)
 
 Returns the value of the `(i1, j1, k1, l1), (i2, j2, k2, l2)`-th entry of the 3D Bernstein derivative 
-matrix with respect to `i` (first barycentric coordinate).
+matrix with respect to ``i`` (first barycentric coordinate).
 """
 function get_coeff(i1, j1, k1, l1, i2, j2, k2, l2)
     if (i1, j1, k1, l1) == (i2, j2, k2, l2) return i1
@@ -75,7 +74,6 @@ function Base.getindex(Dr::BernsteinDerivativeMatrix_3D_r, m, n)
     # du/dr = 1/2 du/di - 1/2 du/dl
     return 0.5 * (get_coeff(i1, j1, k1, l1, i2, j2, k2, l2) - get_coeff(l1, j1, k1, i1, l2, j2, k2, i2))
 end
-
 
 function Base.getindex(Ds::BernsteinDerivativeMatrix_3D_s, m, n)
     N = Ds.N
@@ -133,7 +131,7 @@ function fast_Dr_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Dr::BernsteinDerivativeMatrix_3D_r, x)
+function LinearAlgebra.mul!(out::AbstractVector, Dr::BernsteinDerivativeMatrix_3D_r, x::AbstractVector)
     return fast_Dr_multiply!(out, Dr.N, x, Dr.tri_offsets, Dr.tet_offsets)
 end
 
@@ -175,7 +173,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Ds::BernsteinDerivativeMatrix_3D_s, x)
+function LinearAlgebra.mul!(out::AbstractVector, Ds::BernsteinDerivativeMatrix_3D_s, x::AbstractVector)
     return fast_Ds_multiply!(out, Ds.N, x, Ds.tri_offsets, Ds.tet_offsets)
 end
 
@@ -217,6 +215,17 @@ function fast_Dt_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Dt::BernsteinDerivativeMatrix_3D_t, x)
+function LinearAlgebra.mul!(out::AbstractVector, Dt::BernsteinDerivativeMatrix_3D_t, x::AbstractVector)
     return fast_Dt_multiply!(out, Dt.N, x, Dt.tri_offsets, Dt.tet_offsets)
+end
+
+function LinearAlgebra.mul!(out::AbstractMatrix{<:Real}, D::Union{
+    BernsteinDerivativeMatrix_3D_r, 
+    BernsteinDerivativeMatrix_3D_s, 
+    BernsteinDerivativeMatrix_3D_t},
+    x::AbstractMatrix{<:Real})
+    @inbounds @simd for n in 1:size(x, 2)
+        LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+    end
+    return out
 end
