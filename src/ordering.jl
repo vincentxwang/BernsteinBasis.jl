@@ -1,5 +1,9 @@
-# Assumes i,j >= 0
-ij_to_linear(i,j,offset) = i + offset[j+1] + 1 
+"""
+    ij_to_linear(i,j,offset)
+
+Returns the scalar index of the ``(i,j,k)``-th 2D Bernstein basis.
+"""
+ij_to_linear(i,j, tri_offset) = i + tri_offset[j+1] + 1 
 
 function tri_offsets(N)
     tup = [0]
@@ -21,6 +25,11 @@ function tet_offsets(N)
     return tuple(tup...)
 end
 
+"""
+    ijk_to_linear(i,j,offset)
+
+Returns the scalar index of the ``(i,j,k,l)``-th 3D Bernstein basis.
+"""
 function ijk_to_linear(i,j,k, tri_offsets, tet_offsets)
     return i + tri_offsets[j+1] + 1 + tet_offsets[k+1] - j * k
 end

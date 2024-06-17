@@ -1,14 +1,6 @@
-```@meta
-CurrentModule = BernsteinBasis
-```
-
 # BernsteinBasis
 
-Documentation for [BernsteinBasis](https://github.com/vincentxwang/BernsteinBasis.jl).
+[This package](https://github.com/vincentxwang/BernsteinBasis.jl) contains optimized reference element operators and algorithms for using a Bernstein basis in discontinuous Galerkin methods.
 
-```@index
-```
 
-```@autodocs
-Modules = [BernsteinBasis]
-```
+

@@ -5,7 +5,7 @@ Lift matrix for a single face on a standard tetrahedron.
 
 - Chan, Jesse and Tim Warburton (2017)
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
-  [DOI: 10.48550/arXiv.1512.06025]https://doi.org/10.48550/arXiv.1512.06025
+  [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
 mutable struct BernsteinLift 
     N::Int
@@ -15,7 +15,6 @@ mutable struct BernsteinLift
     tet_offset::NTuple{21, Int}
     E::Vector{Float64}
 end
-
 
 function l_j(N)
     return ntuple(j -> (j <= N) ? ((isodd(j) ? -1.0 : 1.0) * binomial(N, j) / (1.0 + j)) : 0.0, 20) 
@@ -54,7 +53,7 @@ end
 """
     fast_lift_multiply!(out, N, L0, x, offset, l_j, E)
 
-Multiply `x`` by nice lift matrix face
+Multiply `x` by nice lift matrix face
 
 L0 - as defined in paper
 x - input vector
@@ -83,5 +82,3 @@ end
 function LinearAlgebra.mul!(out, L::BernsteinLift, x)
     fast_lift_multiply!(out, L.N, L.L0, x, L.tri_offset_table, L.l_j_table, L.E)
 end
-
-@btime mul!($(zeros(120)), $(BernsteinLift(7)), $(rand(Float64, 36))) # 339.804 ns (0 allocations: 0 bytes)
