@@ -131,7 +131,7 @@ function fast_Dr_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Dr::BernsteinDerivativeMatrix_3D_r, x)
+function LinearAlgebra.mul!(out::AbstractVector, Dr::BernsteinDerivativeMatrix_3D_r, x::AbstractVector)
     return fast_Dr_multiply!(out, Dr.N, x, Dr.tri_offsets, Dr.tet_offsets)
 end
 
@@ -173,7 +173,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Ds::BernsteinDerivativeMatrix_3D_s, x)
+function LinearAlgebra.mul!(out::AbstractVector, Ds::BernsteinDerivativeMatrix_3D_s, x::AbstractVector)
     return fast_Ds_multiply!(out, Ds.N, x, Ds.tri_offsets, Ds.tet_offsets)
 end
 
@@ -215,6 +215,17 @@ function fast_Dt_multiply!(out, N, x, tri_offset, tet_offset)
     return out
 end
 
-function LinearAlgebra.mul!(out, Dt::BernsteinDerivativeMatrix_3D_t, x)
+function LinearAlgebra.mul!(out::AbstractVector, Dt::BernsteinDerivativeMatrix_3D_t, x::AbstractVector)
     return fast_Dt_multiply!(out, Dt.N, x, Dt.tri_offsets, Dt.tet_offsets)
+end
+
+function LinearAlgebra.mul!(out::AbstractMatrix{<:Real}, D::Union{
+    BernsteinDerivativeMatrix_3D_r, 
+    BernsteinDerivativeMatrix_3D_s, 
+    BernsteinDerivativeMatrix_3D_t},
+    x::AbstractMatrix{<:Real})
+    @inbounds @simd for n in 1:size(x, 2)
+        LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+    end
+    return out
 end
