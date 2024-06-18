@@ -84,6 +84,13 @@ function fast_lift_multiply!(out, N, L0, x, tri_offset_table, l_j_table, E)
     return out
 end
 
-function LinearAlgebra.mul!(out, L::BernsteinLift, x)
+function LinearAlgebra.mul!(out::AbstractVector{<:Real}, L::BernsteinLift, x::AbstractVector{<:Real})
     fast_lift_multiply!(out, L.N, L.L0, x, L.tri_offset_table, L.l_j_table, L.E)
+end
+
+function LinearAlgebra.mul!(out::AbstractMatrix{<:Real}, D::BernsteinLift, x::AbstractMatrix{<:Real})
+    @inbounds @simd for n in 1:size(x, 2)
+        LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+    end
+    return out
 end
