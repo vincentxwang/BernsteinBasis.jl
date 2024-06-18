@@ -8,4 +8,4 @@ We define the 3D Bernstein derivative matrices ``\bm{D}^r,\bm{D}^s, \bm{D}^t`` (
 \end{align*}
 ```
 
-where ``\bm{p}`` are the coefficients representing a polynomial ``\bm{p} = \sum_{j=1}^{N_p} \bm{p}_j \psi_j``.
+where ``\bm{p}`` are the coefficients representing a polynomial ``p = \sum_{j=1}^{N_p} \bm{p}_j \psi_j``.
