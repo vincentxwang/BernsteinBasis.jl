@@ -26,7 +26,7 @@ end
     end
 end
 
-@testset "Lift matrix multiplication" begin
+@testset "Lift matrix-vector multiplication" begin
     # Alternate construction of lift matrix
     for N in 1:9
         L0 = (N + 1)^2/2 * transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}()
