@@ -3,6 +3,7 @@ module BernsteinBasis
 using BenchmarkTools
 using SparseArrays
 using LinearAlgebra
+using SparseMatricesCSR
 
 include("ElevationMatrix.jl")
 include("ordering.jl")

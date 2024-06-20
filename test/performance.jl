@@ -2,7 +2,7 @@ using BenchmarkTools
 using BernsteinBasis
 using LinearAlgebra
 
-N = 8
+N = 7
 Np2 = div((N + 1) * (N + 2), 2)
 Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
 
@@ -95,8 +95,8 @@ function make_der_plot(K)
             lw = 0, framestyle = :box)
 end
 
-# make_lift_plot(6)
-# make_der_plot(6)
+make_lift_plot(9)
+# make_der_plot(9)
 
 
 

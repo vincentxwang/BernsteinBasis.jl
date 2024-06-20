@@ -9,7 +9,7 @@ Lift matrix for a single face on a standard tetrahedron.
 """
 mutable struct BernsteinLift 
     N::Int
-    L0::SparseMatrixCSC{Float64, Int64}
+    L0::SparseMatrixCSR{1, Float64, Int64}
     tri_offset_table::NTuple{20, NTuple{21, Int}}
     l_j_table::NTuple{20, Float64}
     tet_offset::NTuple{21, Int}
@@ -22,7 +22,7 @@ end
 
 function BernsteinLift(N)
     Np = div((N + 1) * (N + 2), 2)
-    L0 = (N + 1)^2/2 * sparse(transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}())
+    L0 = SparseMatrixCSR(transpose((N + 1)^2/2 * sparse(transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}())))
     tri_offset_table = tuple([tri_offsets(N) for N in 1:20]...)
     BernsteinLift(N, L0, tri_offset_table, l_j(N), tet_offsets(N), zeros(Np))
 end
