@@ -11,7 +11,7 @@ println("Lift matrix-vector multiplication for N = ", N)
 @btime mul!($(zeros(Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2)))
 
 println("Lift matrix-matrix multiplication for N = ", N)
-@btime mul!($(zeros(Float64, Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2, Np3))) 
+@btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2, Np3))) 
 @btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) 
 
 println("Derivative matrix-matrix multiplication for N = ", N)
@@ -23,7 +23,7 @@ println("Derivative matrix-vector multiplication for N = ", N)
 @btime mul!($(zeros(Np3)), $(Matrix(BernsteinDerivativeMatrix_3D_r(N))), $(rand(Float64, Np3))) 
 
 # Naive matrix multiplication for benchmarking
-function my_mul!(C,A,B)
+function naive_mul!(C,A,B)
     n,m = size(A)
     @inbounds @simd for i in 1:n
         for j in 1:m 
@@ -51,7 +51,7 @@ function make_lift_plot(K)
         time2 = @benchmark mul!($(zeros(Float64, Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) seconds=1
         push!(opt_dense_times, median(time2).time) 
 
-        time3 = @benchmark my_mul!($(zeros(Float64, Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) seconds=1
+        time3 = @benchmark naive_mul!($(zeros(Float64, Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) seconds=1
         push!(unopt_dense_times, median(time3).time) 
     end
 
@@ -81,7 +81,7 @@ function make_der_plot(K)
         time2 = @benchmark mul!($(zeros(Float64, Np3, Np3)), $(Matrix(BernsteinDerivativeMatrix_3D_r(N))), $(rand(Float64, Np3, Np3))) seconds=1
         push!(opt_dense_times, median(time2).time) 
 
-        # time3 = @benchmark my_mul!($(zeros(Float64, Np3, Np3)), $(Matrix(BernsteinDerivativeMatrix_3D_r(N))), $(rand(Float64, Np3, Np3))) seconds=1
+        # time3 = @benchmark naive_mul!($(zeros(Float64, Np3, Np3)), $(Matrix(BernsteinDerivativeMatrix_3D_r(N))), $(rand(Float64, Np3, Np3))) seconds=1
         # push!(unopt_dense_times, median(time3).time) 
     end
 
