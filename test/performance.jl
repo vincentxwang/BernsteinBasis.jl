@@ -11,7 +11,7 @@ println("Lift matrix-vector multiplication for N = ", N)
 @btime mul!($(zeros(Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2)))
 
 println("Lift matrix-matrix multiplication for N = ", N)
-@btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2, Np3))) 
+@btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2, Np3)))
 @btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) 
 
 println("Derivative matrix-matrix multiplication for N = ", N)
@@ -95,8 +95,22 @@ function make_der_plot(K)
             lw = 0, framestyle = :box)
 end
 
-make_lift_plot(9)
+make_lift_plot(4)
 # make_der_plot(9)
 
+function run_many_times()
+    A = zeros(Np3, Np3)
+    B = BernsteinLift(N)
+    C = rand(Float64, Np2, Np3)
+    for _ in 1:500000
+        mul!(A, B, C)
+    end
+end
+
+using Profile
+@profile run_many_times()
+
+using ProfileView
+VSCodeServer.@profview run_many_times()
 
 

@@ -38,16 +38,22 @@ Multiplies `x` by the Bernstein reduction matrix that maps from degree ``N`` pol
 function reduction_multiply!(out, N, x, offset)
     row = 1
     @inbounds for j in 0:N-1
-        for i in 0:N-1-j
+        @simd for i in 0:N-1-j
             k = N-1-i-j
-            val = muladd((i+1), x[ij_to_linear(i+1, j, offset)], 0)
-            val = muladd((j+1), x[ij_to_linear(i, j+1, offset)], val)
-            val = muladd((k+1), x[ij_to_linear(i, j, offset)], val) # k + 1
+
+            # Below are derived from `ij_to_lienar``
+            linear_index1 = i + 1 + offset[j+1] + 1
+            linear_index2 = i + offset[j+2] + 1
+            linear_index3 = i + offset[j+1] + 1
+
+            val = muladd((i+1), x[linear_index1], 
+            muladd((j+1), x[linear_index2],
+            muladd((k+1), x[linear_index3], 0.0)))
             out[row] = val/N
             row += 1
         end
     end
-    return out 
+    return out
 end
 
 """
@@ -67,30 +73,35 @@ Multiplies `x` by the "nice" lift matrix face (``rs``-plane).
   [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
 function fast_lift_multiply!(out, N, L0, x, tri_offset_table, l_j_table, E)
-    mul!(E, L0, x)
-    index1 = div((N + 1) * (N + 2), 2)
-    out[1:index1] .= E
-    reduction_multiply!(E, N, E, tri_offset_table[N])
-    @inbounds for j in 1:N
-        diff = div((N + 1 - j) * (N + 2 - j), 2)
-        index2 = index1 + diff
-        # Assign the next (N+1-j)(N+2-j)/2 entries as l_j * (E^N_{N_j})^T u^f
-        out[(index1 + 1): index2] .= l_j_table[j] .* @view E[1:diff]
-        if j < N
-            index1 = index2
-            reduction_multiply!(E, N-j, E, tri_offset_table[N-j])
+    @inbounds begin 
+        mul!(E, L0, x)
+        index1 = div((N + 1) * (N + 2), 2)
+        out[1:index1] .= E
+        reduction_multiply!(E, N, E, tri_offset_table[N])
+        for j in 1:N
+            diff = div((N + 1 - j) * (N + 2 - j), 2)
+            index2 = index1 + diff
+            # Assign the next (N+1-j)(N+2-j)/2 entries as l_j * (E^N_{N_j})^T u^f
+            @views @simd for i in 1:diff
+                out[index1 + i] = l_j_table[j] * E[i]
+            end
+
+            if j < N
+                index1 = index2
+                reduction_multiply!(E, N-j, E, tri_offset_table[N-j])
+            end
         end
     end
     return out
 end
 
-function LinearAlgebra.mul!(out::AbstractVector{<:Real}, L::BernsteinLift, x::AbstractVector{<:Real})
+function LinearAlgebra.mul!(out::AbstractVector{T}, L::BernsteinLift, x::AbstractVector{T}) where T<:Real
     fast_lift_multiply!(out, L.N, L.L0, x, L.tri_offset_table, L.l_j_table, L.E)
 end
 
-function LinearAlgebra.mul!(out::AbstractMatrix{<:Real}, D::BernsteinLift, x::AbstractMatrix{<:Real})
-    @inbounds @simd for n in 1:size(x, 2)
-        LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+function LinearAlgebra.mul!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
+    @simd for n in axes(x,2)
+        @inbounds LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
     end
     return out
 end
