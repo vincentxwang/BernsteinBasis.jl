@@ -76,3 +76,27 @@ end
         end
     end
 end
+
+@testset "elevation_multiply!" begin
+    for N in 1:20
+        Np = div((N + 1) * (N + 2), 2)
+        Np_out = div((N + 2) * (N + 3), 2)
+        x = rand(Float64, Np)
+        out = zeros(Float64, Np_out)
+        @test ElevationMatrix{N+1}() * x ≈ BernsteinBasis.elevation_multiply!(out, N, x, BernsteinBasis.tri_offset_table[N])
+    end
+end
+
+@testset "L0" begin
+    for N in 1:10
+        N = 5
+        Np = div((N + 1) * (N + 2), 2)
+        x = rand(Float64, Np)
+        Np_out = div((N + 2) * (N + 3), 2)
+        E = zeros(Float64, Np_out)
+        BernsteinBasis.elevation_multiply!(E, N, x, BernsteinBasis.tri_offset_table[N])
+        BernsteinBasis.reduction_multiply!(E, N + 1, E, BernsteinBasis.tri_offset_table[N+1])
+        E .*= (N + 1)^2/2
+        @test BernsteinBasis.L0_table[N] * x ≈ E[1:Np]
+    end
+end

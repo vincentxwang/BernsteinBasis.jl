@@ -2,7 +2,7 @@ using BenchmarkTools
 using BernsteinBasis
 using LinearAlgebra
 
-N = 7
+N = 8
 Np2 = div((N + 1) * (N + 2), 2)
 Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
 
@@ -25,7 +25,7 @@ println("Derivative matrix-vector multiplication for N = ", N)
 # Naive matrix multiplication for benchmarking
 function naive_mul!(C,A,B)
     n,m = size(A)
-    @inbounds @simd for i in 1:n
+    @inbounds for i in 1:n
         for j in 1:m 
             for k in 1:m
                 C[i,j] += A[i,k]*B[k,j]
@@ -95,7 +95,8 @@ function make_der_plot(K)
             lw = 0, framestyle = :box)
 end
 
-make_lift_plot(4)
+make_lift_plot(5)
+make_lift_plot(9)
 # make_der_plot(9)
 
 function run_many_times()
