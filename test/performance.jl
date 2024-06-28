@@ -2,17 +2,18 @@ using BenchmarkTools
 using BernsteinBasis
 using LinearAlgebra
 
-N = 8
+N = 7
 Np2 = div((N + 1) * (N + 2), 2)
 Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
 
+
 println("Lift matrix-vector multiplication for N = ", N)
-@btime mul!($(zeros(Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2)))
-@btime mul!($(zeros(Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2)))
+@btime mul!($(zeros(Np3)), $(BernsteinLift(N)), $(rand(Float64, 4 * Np2)))
+@btime mul!($(zeros(Np3)), $(rand(Float64, Np3, 4 * Np2)), $(rand(Float64, 4 * Np2)))
 
 println("Lift matrix-matrix multiplication for N = ", N)
-@btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, Np2, Np3))) 
-@btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, Np2, Np3))) 
+@btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, 4 * Np2, Np3)))
+@btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, 4 * Np2)), $(rand(Float64, 4 * Np2, Np3))) 
 
 println("Derivative matrix-matrix multiplication for N = ", N)
 @btime mul!($(zeros(Np3, Np3)), $(BernsteinDerivativeMatrix_3D_r(N)), $(rand(Float64, Np3, Np3))) 
@@ -25,7 +26,7 @@ println("Derivative matrix-vector multiplication for N = ", N)
 # Naive matrix multiplication for benchmarking
 function naive_mul!(C,A,B)
     n,m = size(A)
-    @inbounds @simd for i in 1:n
+    @inbounds for i in 1:n
         for j in 1:m 
             for k in 1:m
                 C[i,j] += A[i,k]*B[k,j]
@@ -57,7 +58,7 @@ function make_lift_plot(K)
 
     times = vcat(bernstein_times, opt_dense_times, unopt_dense_times)
     
-    ctg = repeat(["Bernstein", "Dense opt", "Dense unopt"], inner = K)
+    ctg = repeat(["Bernstein", "Dense opt (mul!)", "Dense unopt"], inner = K)
     nam = repeat(string.(1:K), outer = 3)
 
     groupedbar(nam, times, group = ctg, xlabel = "N", ylabel = "Time",
@@ -95,8 +96,25 @@ function make_der_plot(K)
             lw = 0, framestyle = :box)
 end
 
-# make_lift_plot(6)
-# make_der_plot(6)
+make_lift_plot(5)
+make_lift_plot(9)
+# make_der_plot(9)
 
+# Profiling
+
+# function run_many_times()
+#     A = zeros(Np3, Np3)
+#     B = BernsteinLift(N)
+#     C = rand(Float64, Np2, Np3)
+#     for _ in 1:500000
+#         mul!(A, B, C)
+#     end
+# end
+
+# using Profile
+# @profile run_many_times()
+
+# using ProfileView
+# VSCodeServer.@profview run_many_times()
 
 

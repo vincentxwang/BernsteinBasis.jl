@@ -17,9 +17,9 @@ We define the barycentric coordinates ``\lambda_0, \lambda_1, \lambda_2, \lambda
 
 ## Bernstein basis
 
-Consider 4-tuples of non-negative integers ``(i, j, k, l)`` satisfying ``i + j + k + l = N``, where ``N`` is the desired degree of the Bernstein basis. Using these tuples, we define the ``(i, j, k, l)``-th three-dimensional Bernstein basis function as
+Consider 4-tuples of non-negative integers ``(i, j, k, l)`` satisfying ``i + j + k + l = N``, where ``N`` is the desired degree of the Bernstein basis. Using these tuples, we define the ``(i, j, k, l)``-th three-dimensional Bernstein basis function $\psi_{(i,j,k,l)}$ as
 ```math
-\psi_{(i, j, k, l)} = \frac{N!}{i!j!k!l!} \lambda_0^i \lambda_1^j \lambda_2^k \lambda_3^l.
+\psi_{(i, j, k, l)} := \frac{N!}{i!j!k!l!} \lambda_0^i \lambda_1^j \lambda_2^k \lambda_3^l.
 ```
 
 Note that there exist 

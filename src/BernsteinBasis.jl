@@ -2,10 +2,17 @@ module BernsteinBasis
 
 using BenchmarkTools
 using SparseArrays
+using StaticArrays
 using LinearAlgebra
+using SparseMatricesCSR
+
+include("utility.jl")
 
 include("ElevationMatrix.jl")
 include("ordering.jl")
+
+include("constants.jl")
+
 include("BernsteinDerivativeMatrix_3D.jl")
 include("BernsteinLift.jl")
 
