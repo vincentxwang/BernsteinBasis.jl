@@ -99,11 +99,11 @@ function fast_Dr_multiply!(out, N, x, tri_offset, tet_offset)
         for j in 0:N - k
             for i in 0:N - j - k
                 l = N - i - j - k
-                val = 0.0
+                val = zero(eltype(x))
                 x_row = x[row]
 
                 x1 = x_row
-                x4 = (i > 0) ? x[ijk_to_linear(i - 1, j, k, tri_offset, tet_offset)] : 0.0
+                x4 = (i > 0) ? x[ijk_to_linear(i - 1, j, k, tri_offset, tet_offset)] : zero(eltype(x))
                 @fastmath val += i * (x1 - x4)
 
                 if j > 0
@@ -118,7 +118,7 @@ function fast_Dr_multiply!(out, N, x, tri_offset, tet_offset)
                     @fastmath val += k * (x1 - x4)
                 end
 
-                x1 = (l > 0) ? x[ijk_to_linear(i + 1, j, k, tri_offset, tet_offset)] : 0.0
+                x1 = (l > 0) ? x[ijk_to_linear(i + 1, j, k, tri_offset, tet_offset)] : zero(eltype(x))
                 x4 = x_row
                 @fastmath val += l * (x1 - x4)
 
@@ -141,7 +141,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
         for j in 0:N - k
             for i in 0:N - j - k
                 l = N - i - j - k
-                val = 0.0
+                val = zero(eltype(x))
                 x_row = x[row]
 
                 if i > 0
@@ -151,7 +151,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
                 end
 
                 x2 = x_row
-                x4 = (j > 0) ? x[ijk_to_linear(i, j - 1, k, tri_offset, tet_offset)] : 0.0
+                x4 = (j > 0) ? x[ijk_to_linear(i, j - 1, k, tri_offset, tet_offset)] : zero(eltype(x))
                 @fastmath val += j * (x2 - x4)
 
                 if k > 0
@@ -160,7 +160,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
                     @fastmath val += k * (x2 - x4)
                 end
 
-                x2 = (l > 0) ? x[ijk_to_linear(i, j + 1, k, tri_offset, tet_offset)] : 0.0
+                x2 = (l > 0) ? x[ijk_to_linear(i, j + 1, k, tri_offset, tet_offset)] : zero(eltype(x))
                 x4 = x_row
                 @fastmath val += l * (x2 - x4)
 
@@ -183,7 +183,7 @@ function fast_Dt_multiply!(out, N, x, tri_offset, tet_offset)
         for j in 0:N - k
             for i in 0:N - j - k
                 l = N - i - j - k
-                val = 0.0
+                val = zero(eltype(x))
                 x_row = x[row]
 
                 if i > 0
@@ -199,10 +199,10 @@ function fast_Dt_multiply!(out, N, x, tri_offset, tet_offset)
                 end
 
                 x3 = x_row
-                x4 = (k > 0) ? x[ijk_to_linear(i, j, k - 1, tri_offset, tet_offset)] : 0.0
+                x4 = (k > 0) ? x[ijk_to_linear(i, j, k - 1, tri_offset, tet_offset)] : zero(eltype(x))
                 @fastmath val += k * (x3 - x4)
 
-                x3 = (l > 0) ? x[ijk_to_linear(i, j, k + 1, tri_offset, tet_offset)] : 0.0
+                x3 = (l > 0) ? x[ijk_to_linear(i, j, k + 1, tri_offset, tet_offset)] : zero(eltype(x))
                 x4 = x_row
                 @fastmath val += l * (x3 - x4)
 

@@ -1,6 +1,7 @@
 using BernsteinBasis
 using Test
 using LinearAlgebra
+using SparseArrays
 
 @testset "3D derivative matrix-vector multiplication" begin
     for N in 1:12
