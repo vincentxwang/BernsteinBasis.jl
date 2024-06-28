@@ -1,7 +1,9 @@
 """
     BernsteinLift
 
-Lift matrix for a single face on a standard tetrahedron.
+Lift matrix for a single face on a standard tetrahedron. Supports `mul!` operations, but
+should optimally be used for matrix-vector multiplications rather than matrix-matrix
+multiplications.
 
 - Chan, Jesse and Tim Warburton (2017)
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
@@ -9,6 +11,7 @@ Lift matrix for a single face on a standard tetrahedron.
 """
 struct BernsteinLift 
     N::Int
+    # Preallocated vectors for intermediate computations
     E::Vector{Float64}
     F::Vector{Float64}
     G1::Vector{Float64}
