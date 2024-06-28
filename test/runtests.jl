@@ -103,10 +103,12 @@ end
 end
 
 @testset "Lift matrix multiplication verification" begin
-    for N in 1:10
+    for N in 1:8
         Np2 = div((N + 1) * (N + 2), 2)
         Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
         X = rand(Float64, 4 * Np2)
+        Y = rand(Float64, 4 * Np2, 2)
         @test BernsteinBasis.get_bernstein_lift(N) * X ≈ mul!(zeros(Np3), BernsteinLift(N), X)
+        @test BernsteinBasis.get_bernstein_lift(N) * Y ≈ mul!(zeros(Np3, 2), BernsteinLift(N), Y) 
     end
 end

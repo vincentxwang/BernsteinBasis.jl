@@ -99,7 +99,10 @@ function get_bernstein_lift(N)
     # LIFT: quad points on faces -> polynomial in volume
     # ---> define Vq: polynomials on faces -> quad points on faces
 
-    (; rf, sf, tf, wf) = rd
+    rf = rd.rf
+    sf = rd.sf
+    tf = rd.tf
+    wf = rd.wf
     rf, sf, tf, wf = reshape.((rf, sf, tf, wf), :, 4) 
 
     Vq, _ = bernstein_basis(Tet(), N, rd.rstq...)
