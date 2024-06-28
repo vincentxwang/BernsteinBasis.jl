@@ -7,17 +7,21 @@ Lift matrix for a single face on a standard tetrahedron.
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
   [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
-mutable struct BernsteinLift 
+struct BernsteinLift 
     N::Int
     E::Vector{Float64}
     F::Vector{Float64}
+    G1::Vector{Float64}
+    G2::Vector{Float64}
+    G3::Vector{Float64}
 end
 
 function BernsteinLift(N)
-    Np1 = div((N+1) *(N+2), 2)
+    Np1 = div((N+1) * (N+2), 2)
     # F will store this many entries because we multiply by the elevation matrix.
     Np2 = div((N+2) * (N+3), 2)
-    BernsteinLift(N, zeros(Np1), zeros(Np2))
+    Np3 = div((N+1) * (N+2) * (N+3), 6)
+    BernsteinLift(N, zeros(Np1), zeros(Np2), zeros(Np3), zeros(Np3), zeros(Np3))
 end
 
 """
@@ -89,39 +93,19 @@ function elevation_multiply!(out, N, x, offset)
     return out
 end
 
-#stuff
-# N = 7
-# Np = div((N + 1) * (N + 2), 2)
-# x = rand(Float64, Np)
-# Np_out = div((N + 2) * (N + 3), 2)
-# E = zeros(Float64, Np_out)
-# @btime BernsteinBasis.elevation_multiply!($E, $N, $x, $(BernsteinBasis.tri_offset_table[N]))
-# @btime mul!($E, $(sparse(ElevationMatrix{N+1}())), $x)
-# @btime mul!($x, $(L0_table[7]), $x)
-# @btime $E .*= ($N + 1)^2/2
-# @btime BernsteinBasis.reduction_multiply!($E, $(N + 1), $E, $(BernsteinBasis.tri_offset_table[N+1]))
-
-# ElevationMatrix{7}()
-
-# spy(ElevationMatrix{7}(), ms = 2)
-
 """
     fast_lift_multiply!(out, N, L0, x, offset, l_j, E)
 
-Multiplies `x` by the "nice" lift matrix face (``rs``-plane).
+Multiplies `x` by the "nice" lift matrix face (``rs``-plane) of the lift matrix.
 
 # Arguments
-``L0::SparseMatrixCSR{Float64, Int64}``: Precomputed matrix as defined in (Chan 2017)
 ``x::AbstractVector``: Input vector
-``tri_offset_table::NTuple{20, NTuple{21, Int}}``: Precomputed vector of offset tuples
-``l_j_table::NTuple{20, Float64}``: Precomputed coefficients given by `l_j(N)`
-``E::Vector{Float64}`` Dummy vector (with same dimensions as `x`) to reduce redundant memory allocation.
 
 - Chan, Jesse and Tim Warburton (2017)
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
   [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
-function fast_lift_multiply!(out, N, x, E, F)
+function face_lift_multiply!(out, N, x, E, F)
     @inbounds begin 
         elevation_multiply!(F, N, x, tri_offset_table[N])
         reduction_multiply!(E, N + 1, F, tri_offset_table[N+1])
@@ -148,13 +132,54 @@ function fast_lift_multiply!(out, N, x, E, F)
     return out
 end
 
-function LinearAlgebra.mul!(out::AbstractVector{T}, L::BernsteinLift, x::AbstractVector{T}) where T<:Real
-    fast_lift_multiply!(out, L.N, x, L.E, L.F)
+function face_lift_multiply!(out::AbstractVector{T}, L::BernsteinLift, x::AbstractVector{T}) where T<:Real
+    face_lift_multiply!(out, L.N, x, L.E, L.F)
 end
 
-function LinearAlgebra.mul!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
+function face_lift_multiply!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
     @simd for n in axes(x,2)
-        @inbounds LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+        @inbounds face_lift_multiply!(view(out,:,n), D, view(x,:,n))
+    end
+    return out
+end
+
+"""
+    LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
+
+Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
+
+# Arguments
+``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
+``x::AbstratVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
+"""
+function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
+    N = L.N
+    tri_offset = tri_offset_table[N]
+    tet_offset = tet_offset_table[N]
+
+    Np = div((N + 1) * (N + 2), 2)
+    o1 = Np
+    o2 = 2 * Np
+    o3 = 3 * Np
+    o4 = 4 * Np
+
+    # slices make allocations, but is still faster
+    face_lift_multiply!(out, L, x[o3+1:o4])
+    face_lift_multiply!(L.G1, L, x[1:o1])
+    face_lift_multiply!(L.G2, L, x[o1+1:o2])
+    face_lift_multiply!(L.G3, L, x[o2+1:o3])
+
+    row = 1
+    for k in 0:N
+        for j in 0:N-k
+            for i in 0:N-k-j
+                l = N-i-j-k
+                out[row] += L.G1[ijk_to_linear(i,k,j, tri_offset, tet_offset)] 
+                out[row] += L.G2[ijk_to_linear(j,k,l, tri_offset, tet_offset)] 
+                out[row] += L.G3[ijk_to_linear(l,j,i, tri_offset, tet_offset)] 
+                row += 1
+            end
+        end
     end
     return out
 end

@@ -6,6 +6,8 @@ using StaticArrays
 using LinearAlgebra
 using SparseMatricesCSR
 
+include("utility.jl")
+
 include("ElevationMatrix.jl")
 include("ordering.jl")
 
