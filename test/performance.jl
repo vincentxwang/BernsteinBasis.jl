@@ -13,7 +13,7 @@ println("Lift matrix-vector multiplication for N = ", N)
 
 println("Lift matrix-matrix multiplication for N = ", N)
 @btime mul!($(zeros(Np3, Np3)), $(BernsteinLift(N)), $(rand(Float64, 4 * Np2, Np3)))
-@btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, Np2)), $(rand(Float64, 4 * Np2, Np3))) 
+@btime mul!($(zeros(Np3, Np3)), $(rand(Float64, Np3, 4 * Np2)), $(rand(Float64, 4 * Np2, Np3))) 
 
 println("Derivative matrix-matrix multiplication for N = ", N)
 @btime mul!($(zeros(Np3, Np3)), $(BernsteinDerivativeMatrix_3D_r(N)), $(rand(Float64, Np3, Np3))) 

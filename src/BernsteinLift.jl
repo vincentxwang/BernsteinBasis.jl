@@ -150,7 +150,7 @@ Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
 
 # Arguments
 ``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
-``x::AbstratVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
+``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
 """
 function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
     N = L.N
@@ -163,14 +163,13 @@ function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVe
     o3 = 3 * Np
     o4 = 4 * Np
 
-    # slices make allocations, but is still faster
-    face_lift_multiply!(out, L, x[o3+1:o4])
-    face_lift_multiply!(L.G1, L, x[1:o1])
-    face_lift_multiply!(L.G2, L, x[o1+1:o2])
-    face_lift_multiply!(L.G3, L, x[o2+1:o3])
+    face_lift_multiply!(out, L, @view x[o3+1:o4])
+    face_lift_multiply!(L.G1, L, @view x[1:o1])
+    face_lift_multiply!(L.G2, L, @view x[o1+1:o2])
+    face_lift_multiply!(L.G3, L, @view x[o2+1:o3])
 
     row = 1
-    for k in 0:N
+    @inbounds for k in 0:N
         for j in 0:N-k
             for i in 0:N-k-j
                 l = N-i-j-k
@@ -180,6 +179,13 @@ function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVe
                 row += 1
             end
         end
+    end
+    return out
+end
+
+function LinearAlgebra.mul!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
+    @simd for n in axes(x,2)
+        @inbounds LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
     end
     return out
 end
