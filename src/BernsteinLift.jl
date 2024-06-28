@@ -68,7 +68,7 @@ function elevation_multiply!(out, N, x, offset)
         @simd for i in 0:N+1-j
             k = N+1-i-j
 
-            val = 0.0
+            val = zero(eltype(x))
 
             if i > 0
                 val = i * x[ij_to_linear(i-1,j,offset)]
