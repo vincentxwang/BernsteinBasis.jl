@@ -99,12 +99,9 @@ function get_bernstein_lift(N)
     # LIFT: quad points on faces -> polynomial in volume
     # ---> define Vq: polynomials on faces -> quad points on faces
 
-    # ∑ u(x_i) * w_i = ∫u(x)
-    # (A' * W * A)_ij = (a_i, a_j)_L2 = ∫a_i(x) a_j(x)
     (; rf, sf, tf, wf) = rd
     rf, sf, tf, wf = reshape.((rf, sf, tf, wf), :, 4) 
 
-    # directly constructing the Bernstein lift matrix
     Vq, _ = bernstein_basis(Tet(), N, rd.rstq...)
     MB = Vq' * diagm(rd.wq) * Vq
     Vf, _ = bernstein_basis(Tet(), N, rd.rstf...)
