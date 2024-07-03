@@ -186,9 +186,14 @@ function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVe
     return out
 end
 
-function LinearAlgebra.mul!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
+function LinearAlgebra.mul!(out::AbstractMatrix{T}, L::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
     @simd for n in axes(x,2)
-        @inbounds LinearAlgebra.mul!(view(out,:,n), D, view(x,:,n))
+        @inbounds LinearAlgebra.mul!(view(out,:,n), L, view(x,:,n))
     end
     return out
+end
+
+function Base.:*(L::BernsteinLift, x::AbstractMatrix)
+    N = L.N
+    return LinearAlgebra.mul!(zeros(div((N + 1) * (N + 2) * (N + 3), 6), size(x,2)), L, x)
 end

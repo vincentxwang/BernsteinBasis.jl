@@ -16,6 +16,7 @@ include("constants.jl")
 include("BernsteinDerivativeMatrix_3D.jl")
 include("BernsteinLift.jl")
 
+export bernstein_basis
 export ElevationMatrix
 export BernsteinDerivativeMatrix_3D_r, BernsteinDerivativeMatrix_3D_s, 
     BernsteinDerivativeMatrix_3D_t, mul!
