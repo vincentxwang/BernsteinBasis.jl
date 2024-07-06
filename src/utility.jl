@@ -121,6 +121,13 @@ function evaluate_bernstein_derivatives(::Tri, N, r, s, t, i, j, k)
     return vi, vj, vk
 end
 
+"""
+    get_bernstein_lift(N)
+
+Returns an ``N``-degree 3D Bernstein lift matrix as a `Matrix` type (in contrast to `BernsteinLift(N)`).
+
+This function is derived from StartUpDG's `Tet()` struct.
+"""
 function get_bernstein_lift(N)
     rd = RefElemData(Tet(), N)
     # LIFT: quad points on faces -> polynomial in volume

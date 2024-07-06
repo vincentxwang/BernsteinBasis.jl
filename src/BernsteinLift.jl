@@ -178,7 +178,7 @@ function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVe
                 l = N-i-j-k
                 out[row] += L.G1[ijk_to_linear(i,k,j, tri_offset, tet_offset)] 
                 out[row] += L.G2[ijk_to_linear(j,k,l, tri_offset, tet_offset)] 
-                out[row] += L.G3[ijk_to_linear(l,j,i, tri_offset, tet_offset)] 
+                out[row] += L.G3[ijk_to_linear(j,k,i, tri_offset, tet_offset)] 
                 row += 1
             end
         end

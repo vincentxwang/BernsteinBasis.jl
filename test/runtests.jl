@@ -79,7 +79,7 @@ end
     end
 end
 
-@testset "elevation_multiply!" begin
+@testset "Elevation multiply vs. ElevationMatrix" begin
     for N in 1:20
         Np = div((N + 1) * (N + 2), 2)
         Np_out = div((N + 2) * (N + 3), 2)
@@ -89,9 +89,10 @@ end
     end
 end
 
-@testset "Verification of elevation/reduction multiply vs. L0" begin
+@testset "Elevation/reduction multiply vs. ElevationMatrix by constructing L0" begin
     for N in 1:10
         L0 = (N + 1)^2/2 * sparse(transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}())
+
         Np = div((N + 1) * (N + 2), 2)
         x = rand(Float64, Np)
         Np_out = div((N + 2) * (N + 3), 2)
@@ -99,11 +100,12 @@ end
         BernsteinBasis.elevation_multiply!(E, N, x, BernsteinBasis.tri_offset_table[N])
         BernsteinBasis.reduction_multiply!(E, N + 1, E, BernsteinBasis.tri_offset_table[N+1])
         E .*= (N + 1)^2/2
+
         @test L0 * x ≈ E[1:Np]
     end
 end
 
-@testset "Lift matrix multiplication verification" begin
+@testset "Overloaded lift matrix mul! vs. get_bernstein_lift" begin
     for N in 1:8
         Np2 = div((N + 1) * (N + 2), 2)
         Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
@@ -114,8 +116,8 @@ end
     end
 end
 
-@testset "Correctness of 3D derivative matrices vs. StartUpDG" begin
-    for N in 1:8
+@testset "3D derivative matrices vs. StartUpDG" begin
+    for N in 1:9
 
         rd = RefElemData(Tet(), N)
         (; r, s, Fmask) = rd
@@ -133,5 +135,45 @@ end
         @test bernstein_vandermonde \ rd.Dr * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_r(N)
         @test bernstein_vandermonde \ rd.Ds * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_s(N)
         @test bernstein_vandermonde \ rd.Dt * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_t(N)
+    end
+end
+
+@testset "Lift matrix vs. StartUpDG" begin
+    for N in 1:9
+        rd = RefElemData(Tet(), N)
+
+        rtri, stri = nodes(Tri(), N)
+        rfq, sfq, wfq = quad_nodes(Tri(), rd.N)
+        Vq_face = vandermonde(Tri(), rd.N, rfq, sfq) / vandermonde(Tri(), rd.N, rtri, stri)
+
+        nodal_LIFT = rd.LIFT * kron(I(4), Vq_face)
+
+        # create interp matrix from Fmask node ordering to quadrature node ordering
+        (; r, s, Fmask) = rd
+        Fmask = reshape(Fmask, :, 4)
+        rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
+        rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
+
+        rf, sf, tf, wf = reshape.((rd.rf, rd.sf, rd.tf, rd.wf), :, 4) 
+
+        VBf2, _ = bernstein_basis(Tri(), N, rf[:,1], tf[:,1])
+        VBf3, _ = bernstein_basis(Tri(), N, sf[:,2], tf[:,2])
+        VBf4, _ = bernstein_basis(Tri(), N, sf[:,3], tf[:,3])
+        VBf1, _ = bernstein_basis(Tri(), N, rf[:,4], sf[:,4])
+        
+        (; r, s, t) = rd
+
+        bary_coords = BernsteinBasis.cartesian_to_barycentric2(Tet(), r, s, t)
+
+        change = bernstein_basis(Tet(), N, 
+            getfield.(bary_coords, 1), 
+            getfield.(bary_coords, 2),
+            getfield.(bary_coords, 3),
+            getfield.(bary_coords, 4))[1]
+
+
+        # inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)
+        
+        @test BernsteinBasis.get_bernstein_lift(N) ≈ inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)     
     end
 end
