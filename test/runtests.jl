@@ -4,7 +4,7 @@ using LinearAlgebra
 using SparseArrays
 using StartUpDG
 
-@testset "3D derivative matrix-vector multiplication" begin
+@testset "Matrix-vector mul! of BernsteinDerivativeMatrix_3D" begin
     for N in 1:12
         Np = div((N + 1) * (N + 2) * (N + 3), 6)
         x = rand(Float64, Np)
@@ -16,7 +16,7 @@ using StartUpDG
     end
 end
 
-@testset "3D derivative matrix-matrix multiplication" begin
+@testset "Matrix-matrix mul! of BernsteinDerivativeMatrix_3D" begin
     for N in 1:6
         Np = div((N + 1) * (N + 2) * (N + 3), 6)
         x = rand(Float64, Np, Np)
@@ -28,7 +28,7 @@ end
     end
 end
 
-@testset "Lift face_lift_multiply" begin
+@testset "face_lift_multiply vs. a more naive algorithm" begin
     # Alternate construction of lift matrix
     for N in 1:9
         L0 = (N + 1)^2/2 * transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}()
@@ -118,20 +118,13 @@ end
 
 @testset "3D derivative matrices vs. StartUpDG" begin
     for N in 1:9
-
         rd = RefElemData(Tet(), N)
         (; r, s, Fmask) = rd
         rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
         rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
 
-        bary_coords = BernsteinBasis.cartesian_to_barycentric2(Tet(), rd.r, rd.s, rd.t)
-
-        bernstein_vandermonde = bernstein_basis(Tet(), N, 
-            getfield.(bary_coords, 1), 
-            getfield.(bary_coords, 2),
-            getfield.(bary_coords, 3),
-            getfield.(bary_coords, 4))[1]
-        
+        bernstein_vandermonde, _ = bernstein_basis(Tet(), N, rd.r, rd.s, rd.t)
+   
         @test bernstein_vandermonde \ rd.Dr * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_r(N)
         @test bernstein_vandermonde \ rd.Ds * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_s(N)
         @test bernstein_vandermonde \ rd.Dt * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_t(N)
@@ -163,17 +156,8 @@ end
         
         (; r, s, t) = rd
 
-        bary_coords = BernsteinBasis.cartesian_to_barycentric2(Tet(), r, s, t)
+        vande, _ = bernstein_basis(Tet(), N, r, s, t)
 
-        change = bernstein_basis(Tet(), N, 
-            getfield.(bary_coords, 1), 
-            getfield.(bary_coords, 2),
-            getfield.(bary_coords, 3),
-            getfield.(bary_coords, 4))[1]
-
-
-        # inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)
-        
-        @test BernsteinBasis.get_bernstein_lift(N) ≈ inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)     
+        @test BernsteinBasis.get_bernstein_lift(N) ≈ inv(vande) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)     
     end
 end

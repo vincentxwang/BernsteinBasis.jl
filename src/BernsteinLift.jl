@@ -21,7 +21,6 @@ end
 
 function BernsteinLift(N)
     Np1 = div((N+1) * (N+2), 2)
-    # F will store this many entries because we multiply by the elevation matrix.
     Np2 = div((N+2) * (N+3), 2)
     Np3 = div((N+1) * (N+2) * (N+3), 6)
     BernsteinLift(N, zeros(Np1), zeros(Np2), zeros(Np3), zeros(Np3), zeros(Np3))

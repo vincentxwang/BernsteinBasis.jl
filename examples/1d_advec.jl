@@ -1,50 +1,18 @@
 using StartUpDG
 using OrdinaryDiffEq
-using Test
 using LinearAlgebra
+using BernsteinBasis
 
-
-N = 7
+N = 8
 rd = RefElemData(Line(), N)
 md = MeshData(uniform_mesh(rd.element_type, 100), rd; is_periodic=true)
 
-# does not work lol 
+vander, _ = bernstein_basis(Line(), N, rd.r)
 
-# struct BernsteinDerivativeMatrix_1D_r <: AbstractMatrix{Float64}
-#     N::Int
-# end
-
-# function Base.size(Dr::BernsteinDerivativeMatrix_1D_r)
-#     return (Dr.N + 1, Dr.N + 1)
-# end
-
-# function Base.getindex(Dr::BernsteinDerivativeMatrix_1D_r, m, n)
-#     a1 = m
-#     a2 = Dr.N - m
-#     if m - n == 0
-#         return 1/2 * (a1 - a2)
-#     elseif m - n == 1
-#         return 1/2 * (a2 + 1)
-#     elseif m - n == -1
-#         return -1/2 * (a1 + 1)
-#     else
-#         return 0
-#     end
-# end
-
-function bernstein_basis_1d(::Line, N, r, s)
-    V =  hcat(@. [(factorial(N)/(factorial(i) * factorial(N - i))) * r^i * s^(N - i) for i in 0:N]...)
-    return V
-end
-
-a = @. (1+rd.r)/2
-b = @. (1-rd.r)/2
-
-vander = bernstein_basis_1d(Line(), N, a, b)
-
-# @test inv(vander) * rd.Dr * vander ≈  BernsteinDerivativeMatrix_1D_r(N)
-
-# quad points = interp points but the polynomial is = 1 at the endpoints
+# rd.LIFT maps surface quad points -> volume points
+# inv(vander) maps volume points -> bernstein basis coeffs in volume
+# quad points = interp points but the polynomial is = 1 at the endpoints (i.e. surface),
+# so LIFT maps interpolation surface points -> bernstein basis coeffs in volume
 LIFT = inv(vander) * rd.LIFT 
 
 u0 = @. sin(pi * md.x)
@@ -60,25 +28,20 @@ function rhs!(du, u, params, t)
                                    0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
         end
     end
-    # interface_flux = @. 0.5 * (uP + uM)/2 + 1000/2 * (uP - uM) * md.nxJ
+
     dudxJ = md.rxJ .* (Dr * u)
     du .= -(dudxJ + LIFT * interface_flux) ./ md.J
 end
 
-for e in size(u0, 2)
-    u0[:,e] = inv(vander) * u0[:,e]
-end
+# convert u0 to bernstein basis coefficients
+u0_modal = vander \ u0
 
-tspan = (0.0, 1.0)
+tspan = (0.0, 0.2)
 
-ode = ODEProblem(rhs!, u0, tspan, (; LIFT, Dr=(inv(vander) * rd.Dr * vander), rd, interface_flux = md.x[rd.Fmask, :]))
+ode = ODEProblem(rhs!, u0_modal, tspan, (; LIFT, Dr=(inv(vander) * rd.Dr * vander), rd, interface_flux = md.x[rd.Fmask, :]))
 sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25))
 
-u = sol.u[end]
-
-for e in size(u0, 2)
-    u[:,e] = vander * u[:,e]
-end
+u = vander * sol.u[end]
 
 u_exact = @. sin(pi * (md.x - tspan[2]))
 

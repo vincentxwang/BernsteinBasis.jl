@@ -22,11 +22,11 @@ function rhs_matmul!(du, u, params, t)
 
     # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
     # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
+    mul!(du, LIFT, interface_flux)
+
     mul!(dudr, Dr, u) 
     mul!(duds, Ds, u) 
     mul!(dudt, Dt, u) 
-    mul!(du, LIFT, interface_flux)
-    
     @. du += md.rxJ * dudr + md.sxJ * duds + md.txJ * dudt
 
     @. du = -du ./ md.J
@@ -66,7 +66,7 @@ end
 # end
 
 
-N = 10
+N = 7
 rd = RefElemData(Tet(), N)
 
 # create interp matrix from Fmask node ordering to quadrature node ordering
@@ -83,25 +83,17 @@ md = MeshData(uniform_mesh(rd.element_type, 6), rd;
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
 Dt = BernsteinDerivativeMatrix_3D_t(N)
-LIFT = BernsteinBasis.get_bernstein_lift(N)
-
-tspan = (0.0, 2.0)
+LIFT = BernsteinLift(N)
 
 (; x, y, z) = md
-
-u0 = @. cos(pi * x) * cos(pi * y) * cos(pi * z)
-
 (; r, s, t) = rd
 
-bary_coords = BernsteinBasis.cartesian_to_barycentric2(Tet(), r, s, t)
+tspan = (0.0, 2.0)
+u0 = @. cos(pi * x) * cos(pi * y) * cos(pi * z)
 
-change = bernstein_basis(Tet(), N, 
-    getfield.(bary_coords, 1), 
-    getfield.(bary_coords, 2),
-    getfield.(bary_coords, 3),
-    getfield.(bary_coords, 4))[1]
-
-modal_u0 = change \ u0
+# Convert initial conditiosn to Bernstein coefficients
+vande, _ = bernstein_basis(Tet(), N, r, s, t)
+modal_u0 = vande \ u0
 
 # (; Dr, Ds, Dt) = rd
 # this is just filler to get the same size really.
@@ -111,7 +103,7 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 ode = ODEProblem(rhs_matmul!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
 
-u = change * sol.u[end]
+u = vande * sol.u[end]
 
 u_exact = @. cos(pi * (x - tspan[2])) * cos(pi * y) * cos(pi * z)
 

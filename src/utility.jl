@@ -1,15 +1,20 @@
-using StartUpDG
-using SparseArrays
-
 cartesian_to_barycentric(elem, coords...) = 
     cartesian_to_barycentric(elem, vcat(permutedims.(coords)...))
 
-# coords = [x y z]' = 3 x num_points
 """
-    cartesian_to_barycentric(::Union{Tri, Tet}, coords)
+    cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords)
+    cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords...)
 
-Converts a 3 x Np matrix of cartesian coordinates into a matrix of barycentric coordinates.
+Converts a `DIMS` ``\times N_p`` matrix of cartesian coordinates into a matrix of barycentric coordinates.
+Alternatively, also takes in `DIMS` number of vectors of coordinates.
 """
+function cartesian_to_barycentric(::Line, coords::AbstractMatrix)
+    bary = hcat([[(col[1] + 1) / 2,
+                 (1 - col[1]) / 2, 
+                  ] for col in eachcol(coords)]...)
+    return (bary[i,:] for i in 1:2)    
+end
+
 function cartesian_to_barycentric(::Tri, coords::AbstractMatrix)
     bary = hcat([[(col[1] + 1) / 2,
                   (col[2] + 1) / 2, 
@@ -26,41 +31,62 @@ function cartesian_to_barycentric(::Tet, coords::AbstractMatrix)
     return (bary[i,:] for i in 1:4)
 end
 
-function cartesian_to_barycentric2(::Tet, x::AbstractVector, y::AbstractVector, z::AbstractVector)
-    return @. cartesian_to_barycentric3(Tet(), x, y, z)
-end
-
-function cartesian_to_barycentric3(::Tet, x, y, z)
-    return ((1+x)/2, (1+y)/2, (1+z)/2, -(1+x+y+z)/2)
-end
-
-bernstein_basis(elem::Tri, N, r, s) = 
-    bernstein_basis(elem, N, cartesian_to_barycentric(elem, r, s)...)
-
-bernstein_basis(elem::Tet, N, r, s, t) = 
-    bernstein_basis(elem, N, cartesian_to_barycentric(elem, r, s, t)...)
-
-function bernstein_basis(::Line, N, r)
-    x = @. 0.5 * (1 + r)
-    V =  hcat(@. [(factorial(N)/(factorial(i) * factorial(N - i))) * x^i * (1-x)^(1-i) for i in 0:N ]...)
-    return V, nothing 
-end
-
 """
-    bernstein_basis(::Union{Tri, Tet}, N, r, s, t)
+    bernstein_basis(::Line, N, r)
+    bernstein_basis(elem::Tri, N, r, s)
+    bernstein_basis(elem::Tet, N, r, s, t)
 
-Returns a Np x Np matrix V, where V_mn = the n-th Bernstein basis evaluated at the m-th point, followed by its derivative matrices.
+Wrapper for `bernstein_basis_from_barycentric` that takes in ``rst``-space coordinates, each in 
+``[-1, 1]``.
 
-Use `::Tri` for 2D and `::Tet` for 3D. We order the Bernstein basis according to exponents in a "reverse-dictionary" order of the first DIM-1
-coordinates.
+Returns the ``N_p x N_p`` generalized Vandermonde matrix ``\\mathcal{V}``, where ``\\mathcal{V}_{mn}`` = 
+the ``n``-th Bernstein basis evaluated at the ``m``-th point, followed by its derivative matrices.
 
-Does not work for N > 20 because of `factorial()` limitations.
+Use `::Line` for 1D, `::Tri` for 2D, and `::Tet` for 3D. 
+
+We order the Bernstein basis according to exponents in a "reverse-dictionary" order of the first DIM-1
+coordinates. Does not work for ``N > 20`` because of `factorial()` limitations.
 
 # Arguments
 - `N::Int`: Bernstein basis degree
-- `r,s,t::AbstractArray{T,1}`: Np-sized vectors of distinct 2D barycentric coordinates to be used as interpolatory points
+- `r,s,t::AbstractArray{T,1}`: ``N_p``-sized vectors of distinct 2D *barycentric* coordinates to be 
+used as interpolatory points
 """
-function bernstein_basis(::Tri, N, r, s, t)
+function bernstein_basis(elem::Line, N, r)
+    bernstein_basis_from_barycentric(elem, N, cartesian_to_barycentric(elem, r)...)
+end
+
+bernstein_basis(elem::Tri, N, r, s) = 
+    bernstein_basis_from_barycentric(elem, N, cartesian_to_barycentric(elem, r, s)...)
+
+bernstein_basis(elem::Tet, N, r, s, t) = 
+    bernstein_basis_from_barycentric(elem, N, cartesian_to_barycentric(elem, r, s, t)...)
+
+
+"""
+    bernstein_basis_from_barycentric(::Line, N, r, s)
+    bernstein_basis_from_barycentric(::Tri, N, r, s, t)
+    bernstein_basis_from_barycentric(::Tet, N, r, s, t, u)
+
+Returns the ``N_p x N_p`` generalized Vandermonde matrix ``\\mathcal{V}``, where ``\\mathcal{V}_{mn}`` = 
+the ``n``-th Bernstein basis evaluated at the ``m``-th point, followed by its derivative matrices.
+
+Use `::Line` for 1D, `::Tri` for 2D, and `::Tet` for 3D. 
+    
+We order the Bernstein basis according to exponents in a "reverse-dictionary" order of the first DIM-1
+coordinates. Does not work for ``N > 20`` because of `factorial()` limitations.
+
+# Arguments
+- `N::Int`: Bernstein basis degree
+- `r,s,t::AbstractArray{T,1}`: ``N_p``-sized vectors of distinct 2D *barycentric* coordinates to be 
+used as interpolatory points
+"""
+function bernstein_basis_from_barycentric(::Line, N, r, s)
+    V =  hcat(@. [(factorial(N)/(factorial(i) * factorial(N - i))) * r^i * s^(N - i) for i in 0:N]...)
+    return V, nothing
+end
+
+function bernstein_basis_from_barycentric(::Tri, N, r, s, t)
     V =  hcat(@. [(factorial(N)/(factorial(i) * factorial(j) * factorial(N - i - j))) * r^i * s^j * t^(N - i - j) for j in 0:N for i in 0:N-j]...)
     # V =  hcat(@. [(factorial(N)/(factorial(i) * factorial(j) * factorial(N - i - j))) * r^i * s^j * t^(N - i - j) for i in 0:N for j in 0:N-i]...)
     Vi = hcat([evaluate_bernstein_derivatives(Tri(), N, r, s, t, i, j, N - i - j)[1] for j in 0:N for i in 0:N-j]...)
@@ -69,7 +95,7 @@ function bernstein_basis(::Tri, N, r, s, t)
     return V, Vi, Vj, Vk
 end
 
-function bernstein_basis(::Tet, N, r, s, t, u)
+function bernstein_basis_from_barycentric(::Tet, N, r, s, t, u)
     V = hcat(@. [(factorial(N)/(factorial(i) * factorial(j) * factorial(k) * factorial(N - i - j - k))) *
         r^i * s^j * t^k * u^(N - i - j - k) for k in 0:N for j in 0:N-k for i in 0:N-k-j]...)
     # V = hcat(@. [(factorial(N)/(factorial(i) * factorial(j) * factorial(k) * factorial(N - i - j - k))) *
