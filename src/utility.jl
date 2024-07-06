@@ -26,11 +26,11 @@ function cartesian_to_barycentric(::Tet, coords::AbstractMatrix)
     return (bary[i,:] for i in 1:4)
 end
 
-function cartesian_to_barycentric(::Tet, x::AbstractVector, y::AbstractVector, z::AbstractVector)
-    return @. cartesian_to_barycentric2(Tet(), x, y, z)
+function cartesian_to_barycentric2(::Tet, x::AbstractVector, y::AbstractVector, z::AbstractVector)
+    return @. cartesian_to_barycentric3(Tet(), x, y, z)
 end
 
-function cartesian_to_barycentric2(::Tet, x, y, z)
+function cartesian_to_barycentric3(::Tet, x, y, z)
     return ((1+x)/2, (1+y)/2, (1+z)/2, -(1+x+y+z)/2)
 end
 
@@ -136,7 +136,7 @@ function get_bernstein_lift(N)
     MB = Vq' * diagm(rd.wq) * Vq
     Vf, _ = bernstein_basis(Tet(), N, rd.rstf...)
     VBf2, _ = bernstein_basis(Tri(), N, rf[:,1], tf[:,1])
-    VBf3, _ = bernstein_basis(Tri(), N, rf[:,2], sf[:,2])
+    VBf3, _ = bernstein_basis(Tri(), N, sf[:,2], tf[:,2])
     VBf4, _ = bernstein_basis(Tri(), N, sf[:,3], tf[:,3])
     VBf1, _ = bernstein_basis(Tri(), N, rf[:,4], sf[:,4])
     MBf = Vf' * diagm(rd.wf) * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)

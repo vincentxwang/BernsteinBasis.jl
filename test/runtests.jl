@@ -2,6 +2,7 @@ using BernsteinBasis
 using Test
 using LinearAlgebra
 using SparseArrays
+using StartUpDG
 
 @testset "3D derivative matrix-vector multiplication" begin
     for N in 1:12
@@ -110,5 +111,27 @@ end
         Y = rand(Float64, 4 * Np2, 2)
         @test BernsteinBasis.get_bernstein_lift(N) * X ≈ mul!(zeros(Np3), BernsteinLift(N), X)
         @test BernsteinBasis.get_bernstein_lift(N) * Y ≈ mul!(zeros(Np3, 2), BernsteinLift(N), Y) 
+    end
+end
+
+@testset "Correctness of 3D derivative matrices vs. StartUpDG" begin
+    for N in 1:8
+
+        rd = RefElemData(Tet(), N)
+        (; r, s, Fmask) = rd
+        rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
+        rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
+
+        bary_coords = BernsteinBasis.cartesian_to_barycentric2(Tet(), rd.r, rd.s, rd.t)
+
+        bernstein_vandermonde = bernstein_basis(Tet(), N, 
+            getfield.(bary_coords, 1), 
+            getfield.(bary_coords, 2),
+            getfield.(bary_coords, 3),
+            getfield.(bary_coords, 4))[1]
+        
+        @test bernstein_vandermonde \ rd.Dr * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_r(N)
+        @test bernstein_vandermonde \ rd.Ds * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_s(N)
+        @test bernstein_vandermonde \ rd.Dt * bernstein_vandermonde ≈ BernsteinDerivativeMatrix_3D_t(N)
     end
 end
