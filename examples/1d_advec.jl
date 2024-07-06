@@ -4,7 +4,6 @@ using Test
 using LinearAlgebra
 
 
-
 N = 7
 rd = RefElemData(Line(), N)
 md = MeshData(uniform_mesh(rd.element_type, 100), rd; is_periodic=true)

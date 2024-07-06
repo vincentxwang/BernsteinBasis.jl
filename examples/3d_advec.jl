@@ -1,3 +1,5 @@
+
+
 using OrdinaryDiffEq
 using StartUpDG
 using Plots
@@ -6,13 +8,6 @@ using SparseArrays
 using BernsteinBasis
 
 
-# PDE -> ODE system
-#     -> du/dt = rhs(u, params, t)
-# advection equation: du/dt + du/dx = 0
-# wave equation: dp/dt + du/dx + dv/dy + dw/dz = 0
-#                du/dt + dp/dx = 0
-#                dv/dt + dp/dy = 0
-#                dw/dt + dp/dz = 0
 function rhs_matmul!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     (; uM, interface_flux, dudr, duds, dudt) = params.cache
@@ -71,7 +66,7 @@ end
 # end
 
 
-N = 9
+N = 10
 rd = RefElemData(Tet(), N)
 
 # create interp matrix from Fmask node ordering to quadrature node ordering
@@ -82,15 +77,13 @@ Fmask = reshape(Fmask, :, 4)
 rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
 
 rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-md = MeshData(uniform_mesh(rd.element_type, 3), rd;               
+md = MeshData(uniform_mesh(rd.element_type, 6), rd;               
               is_periodic=true)
               
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
 Dt = BernsteinDerivativeMatrix_3D_t(N)
 LIFT = BernsteinBasis.get_bernstein_lift(N)
-
-# LIFT = Matrix(BernsteinBasis.get_bernstein_lift(N))
 
 tspan = (0.0, 2.0)
 
@@ -110,36 +103,6 @@ change = bernstein_basis(Tet(), N,
 
 modal_u0 = change \ u0
 
-
-# rf, sf, tf, wf = reshape.((rd.rf, rd.sf, rd.tf, rd.wf), :, 4) 
-
-# VBf2, _ = bernstein_basis(Tri(), N, rf[:,1], tf[:,1])
-# VBf3, _ = bernstein_basis(Tri(), N, sf[:,2], tf[:,2])
-# VBf4, _ = bernstein_basis(Tri(), N, sf[:,3], tf[:,3])
-# VBf1, _ = bernstein_basis(Tri(), N, rf[:,4], sf[:,4])
-
-# # inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)
-
-# # @show norm(BernsteinBasis.get_bernstein_lift(N) - inv(change) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...), Inf)
-
-
-# change = bernstein_basis(Tet(), N, 
-#     getfield.(bary_coords, 1), 
-#     getfield.(bary_coords, 2),
-#     getfield.(bary_coords, 3),
-#     getfield.(bary_coords, 4))[1]
-
-# for e in size(u0, 2)
-#     u0[:,e] = change \ u0[:,e]
-# end
-
-# spy(droptol!(sparse(u0), 1e-10), ms=4)
-
-
-# heatmap(reshape(u0[:,48], 120, 1))
-
-# spy(droptol!(sparse(u0), 1))
-
 # (; Dr, Ds, Dt) = rd
 # this is just filler to get the same size really.
 cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
@@ -148,15 +111,9 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 ode = ODEProblem(rhs_matmul!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
 
-
 u = change * sol.u[end]
 
 u_exact = @. cos(pi * (x - tspan[2])) * cos(pi * y) * cos(pi * z)
 
 @show norm(u - u_exact, Inf)
-
-# @gif for u in sol.u
-#     scatter(vec(rd.Vp * md.x), vec(rd.Vp * md.y), vec(rd.Vp * md.z), zcolor=vec(rd.Vp * u), 
-#         leg=false, msw=0, ms=4, ratio=1)
-# end
 

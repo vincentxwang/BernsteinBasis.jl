@@ -4,7 +4,7 @@ using Plots
 using LinearAlgebra
 using SparseArrays
 
-N = 2
+N = 10
 rd = RefElemData(Tet(), N)
 
 # create interp matrix from Fmask node ordering to quadrature node ordering
@@ -14,27 +14,18 @@ Fmask = reshape(Fmask, :, 4)
 rtri, stri = nodes(Tri(), N)
 rfq, sfq, wfq = quad_nodes(Tri(), rd.N)
 Vq_face = vandermonde(Tri(), rd.N, rfq, sfq) / vandermonde(Tri(), rd.N, rtri, stri)
-VFmask = sparse(eachindex(vec(Fmask)), vec(Fmask), ones(length(Fmask)))
-Vf_kron = kron(I(4), Vq_face) * VFmask
-
-
-help_1, = bernstein_basis(Tri(), rd.N, rfq, sfq) 
-help_2, = bernstein_basis(Tri(), rd.N, rtri, stri)
-Vq_face = help_1 / help_2
 
 nodal_LIFT = rd.LIFT * kron(I(4), Vq_face)
-
-spy(droptol!(sparse(kron(I(4), Vq_face)), 1e-10))
 
 # check for correctness of LIFT matrix
 u = randn(length(rd.r))
 uf = rd.Vf * u
-@assert norm(rd.LIFT * uf - nodal_LIFT * u[rd.Fmask]) < 100 * eps() * length(LIFT)
+@assert norm(rd.LIFT * uf - nodal_LIFT * u[rd.Fmask]) < 100 * eps() * length(nodal_LIFT)
 
 # recreate RefElemData with nodal points instead of a quadrature rule
 rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
 rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-md = MeshData(uniform_mesh(rd.element_type, 4), rd;               
+md = MeshData(uniform_mesh(rd.element_type, 6), rd;               
               is_periodic=true)
 
 # PDE -> ODE system
@@ -57,7 +48,6 @@ function rhs_matmul!(du, u, params, t)
         end
     end
 
-    du .= 0 
     # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
     # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
     mul!(dudr, Dr, u) 
@@ -68,7 +58,6 @@ function rhs_matmul!(du, u, params, t)
 
     mul!(du, LIFT, interface_flux, 1, 1)
     @. du = -du ./ md.J
-    return du
 end
 
 # function rhs_matvec!(du, u, params, t)
@@ -98,31 +87,17 @@ end
 #     end
 # end
 
-tspan = (0.0, 0.01)
+tspan = (0.0, 2.0)
 
 (; x, y, z) = md
 u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
-
-heatmap(u0)
 
 (; Dr, Ds, Dt) = rd
 cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
            dudr = similar(md.x), duds = similar(md.x), dudt = similar(md.x))
 params = (; rd, md, Dr, Ds, Dt, LIFT=nodal_LIFT, cache)
 ode = ODEProblem(rhs_matmul!, u0, tspan, params)
-sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), adaptive = false, dt = 0.01)
-
-
-
-# A = similar(u0)
-# spy(droptol!(sparse(rhs_matmul!(A, u0, params, 0)), 1e-10))
-# spy(Matrix(droptol!(sparse(rhs_matmul!(similar(x), u0, params, 0)), 1e-10)))
-
-heatmap(rhs_matmul!(similar(x), u0, params, 0))
-
-A = rhs_matmul!(similar(x), u0, params, 0)
-
-spy(A)
+sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
 
 u = sol.u[end]
 
