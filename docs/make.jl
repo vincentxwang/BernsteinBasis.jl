@@ -19,7 +19,11 @@ makedocs(;
             "Derivative" => "derivative.md"
             "Lift" => "lift.md"
         ],
-        "Reference" => "reference.md",
+        "Full API" => "api.md",
+        "Misc. notes and such" => [
+            "Polynomial representation" => "polynomial.md"
+            "Example: advection" => "advection.md"
+        ]
     ],
 )
 
