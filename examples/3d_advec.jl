@@ -1,4 +1,4 @@
-
+# A Bernstein basis DG solver for the 3D advection equation.
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -6,7 +6,6 @@ using Plots
 using LinearAlgebra
 using SparseArrays
 using BernsteinBasis
-using BenchmarkTools
 
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
@@ -22,7 +21,7 @@ function rhs_matvec!(du, u, params, t)
         end
     end
 
-    Threads.@threads for e in axes(du, 2)
+    @inbounds for e in axes(du, 2)
         mul!(view(dudr, :, e), Dr, view(u, :, e))
         mul!(view(duds, :, e), Ds, view(u, :, e))
         mul!(view(dudt, :, e), Dt, view(u, :, e))
@@ -38,7 +37,7 @@ function rhs_matvec!(du, u, params, t)
     end
 end
 
-# Set the polynomial order
+# Set polynomial order
 N = 2
 
 rd = RefElemData(Tet(), N)
@@ -78,8 +77,6 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
-
-# @btime rhs_matvec!($(similar(modal_u0)), $(modal_u0), $params, 0)
 
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]

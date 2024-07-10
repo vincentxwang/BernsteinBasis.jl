@@ -1,11 +1,12 @@
+# A Lagrange basis DG solver for the 3D advection equation.
+
 using OrdinaryDiffEq
 using StartUpDG
 using Plots
 using LinearAlgebra
 using SparseArrays
-using BenchmarkTools
 
-# Set the polynomial order
+# Set polynomial order
 N = 7
 
 rd = RefElemData(Tet(), N)
@@ -101,8 +102,6 @@ params = (; rd, md, Dr, Ds, Dt, LIFT=nodal_LIFT, cache)
 # Solve ODE system
 ode = ODEProblem(rhs_matmul!, u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
-
-@btime rhs_matmul!($(similar(u0)), $(u0), $params, 0)
 
 u = sol.u[end]
 

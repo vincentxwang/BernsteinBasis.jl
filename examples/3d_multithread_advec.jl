@@ -1,4 +1,5 @@
-
+# A Bernstein basis DG solver for the 3D advection equation, with
+# multithreading. Make sure that Julia is set to run on more than one thread.
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -6,7 +7,6 @@ using Plots
 using LinearAlgebra
 using SparseArrays
 using BernsteinBasis
-using BenchmarkTools
 
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
@@ -15,7 +15,7 @@ function rhs_matvec!(du, u, params, t)
     
     uM .= view(u, rd.Fmask, :)
 
-    @inbounds Threads.@threads for e in axes(uM, 2)
+    @inbounds for e in axes(uM, 2)
         for i in axes(uM, 1)
             interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
                                    0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
@@ -38,7 +38,7 @@ function rhs_matvec!(du, u, params, t)
     end
 end
 
-# Set the polynomial order
+# Set polynomial order
 N = 7
 
 rd = RefElemData(Tet(), N)
