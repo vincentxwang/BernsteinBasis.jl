@@ -6,106 +6,85 @@ using Plots
 using LinearAlgebra
 using SparseArrays
 using BernsteinBasis
+using BenchmarkTools
 
-
-function rhs_matmul!(du, u, params, t)
+function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
+    
     (; uM, interface_flux, dudr, duds, dudt) = params.cache
     
     uM .= view(u, rd.Fmask, :)
-    for e in axes(uM, 2)
+
+    @inbounds for e in axes(uM, 2)
         for i in axes(uM, 1)
-            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] -
+            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
                                    0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
         end
     end
 
-    # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
-    # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
-    mul!(du, LIFT, interface_flux)
+    Threads.@threads for e in axes(du, 2)
+        mul!(view(dudr, :, e), Dr, view(u, :, e))
+        mul!(view(duds, :, e), Ds, view(u, :, e))
+        mul!(view(dudt, :, e), Dt, view(u, :, e))
 
-    mul!(dudr, Dr, u) 
-    mul!(duds, Ds, u) 
-    mul!(dudt, Dt, u) 
-    @. du += md.rxJ * dudr + md.sxJ * duds + md.txJ * dudt
+        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
 
-    @. du = -du ./ md.J
-    return du
+        for i in axes(du, 1)
+            du[i, e] += md.rxJ[1, e] * dudr[i, e] + 
+                        md.sxJ[1, e] * duds[i, e] + 
+                        md.txJ[1, e] * dudt[i, e]
+            du[i, e] = -du[i, e] / md.J[1, e]
+        end
+    end
 end
 
+# Set the polynomial order
+N = 2
 
-# function rhs_matvec!(du, u, params, t)
-#     (; rd, md, Dr, Ds, Dt, LIFT) = params
-    
-#     (; uM, interface_flux, dudr, duds, dudt) = params.cache
-    
-#     uM .= view(u, rd.Fmask, :)
-
-#     for e in axes(uM, 2)
-#         for i in axes(uM, 1)
-#             interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] + uM[i,e]) * md.nxJ[i,e] - 
-#                                    0.5 * (uM[md.mapP[i,e]] + uM[i,e]) * md.Jf[i,e]
-#         end
-#     end
-
-    
-#     for e in axes(du, 2)
-#         mul!(view(dudr, :, e), Dr, view(u, :, e))
-#         mul!(view(duds, :, e), Ds, view(u, :, e))
-#         mul!(view(dudt, :, e), Dt, view(u, :, e))
-
-#         mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
-
-#         for i in axes(du, 1)
-#             du[i, e] += md.rxJ[1, e] * dudr[i, e] + 
-#                         md.sxJ[1, e] * duds[i, e] + 
-#                         md.txJ[1, e] * dudt[i, e]
-#             du[i, e] = -du[i, e] / md.J[1, e]
-#         end
-#     end
-# end
-
-
-N = 7
 rd = RefElemData(Tet(), N)
 
-# create interp matrix from Fmask node ordering to quadrature node ordering
 (; r, s, Fmask) = rd
-
 Fmask = reshape(Fmask, :, 4)
-
 rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
 
 rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-md = MeshData(uniform_mesh(rd.element_type, 6), rd;               
+md = MeshData(uniform_mesh(rd.element_type, 2), rd;               
               is_periodic=true)
               
+# Problem setup
+tspan = (0.0, 1.0)
+(; x, y, z) = md
+u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
+
+
+# Convert initial conditions to Bernstein coefficients
+(; r, s, t) = rd
+vande, _ = bernstein_basis(Tet(), N, r, s, t)
+modal_u0 = vande \ u0
+
+# Initialize operators
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
 Dt = BernsteinDerivativeMatrix_3D_t(N)
 LIFT = BernsteinLift(N)
 
-(; x, y, z) = md
-(; r, s, t) = rd
-
-tspan = (0.0, 2.0)
-u0 = @. cos(pi * x) * cos(pi * y) * cos(pi * z)
-
-# Convert initial conditiosn to Bernstein coefficients
-vande, _ = bernstein_basis(Tet(), N, r, s, t)
-modal_u0 = vande \ u0
-
-# (; Dr, Ds, Dt) = rd
-# this is just filler to get the same size really.
+# Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
            dudr = similar(md.x), duds = similar(md.x), dudt = similar(md.x))
+
+# Combine parameters
 params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
-ode = ODEProblem(rhs_matmul!, modal_u0, tspan, params)
+
+# Solve ODE system
+ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
 
+# @btime rhs_matvec!($(similar(modal_u0)), $(modal_u0), $params, 0)
+
+# Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]
 
-u_exact = @. cos(pi * (x - tspan[2])) * cos(pi * y) * cos(pi * z)
-
+# Test against analytical solution
+u_exact = @. sin(pi * (x - tspan[2])) * sin(pi * y) * sin(pi * z)
 @show norm(u - u_exact, Inf)
 

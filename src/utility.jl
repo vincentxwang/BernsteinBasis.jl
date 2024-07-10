@@ -1,6 +1,3 @@
-cartesian_to_barycentric(elem, coords...) = 
-    cartesian_to_barycentric(elem, vcat(permutedims.(coords)...))
-
 """
     cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords)
     cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords...)
@@ -31,13 +28,16 @@ function cartesian_to_barycentric(::Tet, coords::AbstractMatrix)
     return (bary[i,:] for i in 1:4)
 end
 
+cartesian_to_barycentric(elem, coords...) = 
+    cartesian_to_barycentric(elem, vcat(permutedims.(coords)...))
+
 """
     bernstein_basis(::Line, N, r)
     bernstein_basis(elem::Tri, N, r, s)
     bernstein_basis(elem::Tet, N, r, s, t)
 
 Wrapper for `bernstein_basis_from_barycentric` that takes in ``rst``-space coordinates, each in 
-``[-1, 1]``.
+``[-1, 1]``, instead of barycentric coordinates.
 
 Returns the ``N_p x N_p`` generalized Vandermonde matrix ``\\mathcal{V}``, where ``\\mathcal{V}_{mn}`` = 
 the ``n``-th Bernstein basis evaluated at the ``m``-th point, followed by its derivative matrices.
@@ -61,7 +61,6 @@ bernstein_basis(elem::Tri, N, r, s) =
 
 bernstein_basis(elem::Tet, N, r, s, t) = 
     bernstein_basis_from_barycentric(elem, N, cartesian_to_barycentric(elem, r, s, t)...)
-
 
 """
     bernstein_basis_from_barycentric(::Line, N, r, s)
@@ -150,7 +149,7 @@ end
 """
     get_bernstein_lift(N)
 
-Returns an ``N``-degree 3D Bernstein lift matrix as a `Matrix` type (in contrast to `BernsteinLift(N)`).
+Returns an ``N``-degree 3D Bernstein lift matrix as a `Matrix` type, in contrast to `BernsteinLift(N)`.
 
 This function is derived from StartUpDG's `Tet()` struct.
 """
