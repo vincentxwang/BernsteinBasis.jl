@@ -1,4 +1,5 @@
-# A Bernstein basis DG solver for the 3D advection equation.
+# A Bernstein basis DG solver for the 3D advection equation, with
+# multithreading. Make sure that Julia is set to run on more than one thread.
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -21,12 +22,12 @@ function rhs_matvec!(du, u, params, t)
         end
     end
 
-    @inbounds for e in axes(du, 2)
+    @inbounds Threads.@threads for e in axes(du, 2)
         mul!(view(dudr, :, e), Dr, view(u, :, e))
         mul!(view(duds, :, e), Ds, view(u, :, e))
         mul!(view(dudt, :, e), Dt, view(u, :, e))
 
-        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
+        threaded_mul!(view(du, :, e), LIFT, view(interface_flux, :, e), Threads.threadid())
 
         for i in axes(du, 1)
             du[i, e] += md.rxJ[1, e] * dudr[i, e] + 
@@ -38,7 +39,7 @@ function rhs_matvec!(du, u, params, t)
 end
 
 # Set polynomial order
-N = 2
+N = 7
 
 rd = RefElemData(Tet(), N)
 
@@ -47,7 +48,7 @@ Fmask = reshape(Fmask, :, 4)
 rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
 
 rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-md = MeshData(uniform_mesh(rd.element_type, 2), rd;               
+md = MeshData(uniform_mesh(rd.element_type, 4), rd;               
               is_periodic=true)
               
 # Problem setup
@@ -65,7 +66,7 @@ modal_u0 = vande \ u0
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
 Dt = BernsteinDerivativeMatrix_3D_t(N)
-LIFT = BernsteinLift(N)
+LIFT = MultithreadedBernsteinLift(N, Threads.nthreads())
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 

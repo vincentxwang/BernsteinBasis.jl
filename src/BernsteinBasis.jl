@@ -21,6 +21,6 @@ export bernstein_basis, bernstein_basis_from_barycentric
 export ElevationMatrix
 export BernsteinDerivativeMatrix_3D_r, BernsteinDerivativeMatrix_3D_s, 
     BernsteinDerivativeMatrix_3D_t, mul!
-export BernsteinLift, mul!
+export BernsteinLift, mul!, MultithreadedBernsteinLift, threaded_mul!
 
 end

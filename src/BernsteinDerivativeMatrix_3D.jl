@@ -97,7 +97,7 @@ function fast_Dr_multiply!(out, N, x, tri_offset, tet_offset)
     row = 1
     @inbounds for k in 0:N
         for j in 0:N - k
-            for i in 0:N - j - k
+            @simd for i in 0:N - j - k
                 l = N - i - j - k
                 val = zero(eltype(x))
                 x_row = x[row]
@@ -139,7 +139,7 @@ function fast_Ds_multiply!(out, N, x, tri_offset, tet_offset)
     row = 1
     @inbounds for k in 0:N
         for j in 0:N - k
-            for i in 0:N - j - k
+            @simd for i in 0:N - j - k
                 l = N - i - j - k
                 val = zero(eltype(x))
                 x_row = x[row]
@@ -181,7 +181,7 @@ function fast_Dt_multiply!(out, N, x, tri_offset, tet_offset)
     row = 1
     @inbounds for k in 0:N
         for j in 0:N - k
-            for i in 0:N - j - k
+            @simd for i in 0:N - j - k
                 l = N - i - j - k
                 val = zero(eltype(x))
                 x_row = x[row]
