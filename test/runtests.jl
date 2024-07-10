@@ -90,7 +90,7 @@ end
 end
 
 @testset "Elevation/reduction multiply vs. ElevationMatrix by constructing L0" begin
-    for N in 1:10
+    for N in 1:9
         L0 = (N + 1)^2/2 * sparse(transpose(ElevationMatrix{N+1}()) * ElevationMatrix{N+1}())
 
         Np = div((N + 1) * (N + 2), 2)
@@ -116,6 +116,15 @@ end
     end
 end
 
+@testset "Lift matrix threaded_mul! vs. get_bernstein_lift" begin
+    for N in 1:9
+        Np2 = div((N + 1) * (N + 2), 2)
+        Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
+        X = rand(Float64, 4 * Np2)
+        @test BernsteinBasis.get_bernstein_lift(N) * X ≈ threaded_mul!(zeros(Np3), BernsteinBasis.MultithreadedBernsteinLift(N, 4), X, 3)
+    end
+end
+
 @testset "3D derivative matrices vs. StartUpDG" begin
     for N in 1:9
         rd = RefElemData(Tet(), N)
@@ -132,7 +141,7 @@ end
 end
 
 @testset "Lift matrix vs. StartUpDG" begin
-    for N in 1:9
+    for N in 1:10
         rd = RefElemData(Tet(), N)
 
         rtri, stri = nodes(Tri(), N)

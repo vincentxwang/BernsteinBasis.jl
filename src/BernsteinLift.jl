@@ -27,6 +27,35 @@ function BernsteinLift(N)
 end
 
 """
+    MultithreadedBernsteinLift
+
+A multithreaded-friendly lift matrix for a single face on a standard tetrahedron. Supports 
+`mul!` operations, but should optimally be used for matrix-vector multiplications rather than matrix-matrix
+multiplications.
+
+- Chan, Jesse and Tim Warburton (2017)
+  GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
+  [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
+"""
+struct MultithreadedBernsteinLift 
+    N::Int
+    # Preallocated vectors for intermediate computations, each column is for a
+    # thread with corresponding id
+    E::Matrix{Float64}
+    F::Matrix{Float64}
+    G1::Matrix{Float64}
+    G2::Matrix{Float64}
+    G3::Matrix{Float64}
+end
+
+function MultithreadedBernsteinLift(N, threads)
+    Np1 = div((N+1) * (N+2), 2)
+    Np2 = div((N+2) * (N+3), 2)
+    Np3 = div((N+1) * (N+2) * (N+3), 6)
+    MultithreadedBernsteinLift(N, zeros(Np1, threads), zeros(Np2, threads), zeros(Np3, threads), zeros(Np3, threads), zeros(Np3, threads))
+end
+
+"""
     reduction_multiply!(out, N, x, offset)
 
 Multiplies `x` by the 2D Bernstein reduction matrix that maps from degree ``N`` polynomials to 
@@ -138,6 +167,10 @@ function face_lift_multiply!(out::AbstractVector{T}, L::BernsteinLift, x::Abstra
     face_lift_multiply!(out, L.N, x, L.E, L.F)
 end
 
+function threaded_face_lift_multiply!(out::AbstractVector{T}, L::MultithreadedBernsteinLift, x::AbstractVector{T}, thread) where T<:Real
+    face_lift_multiply!(out, L.N, x, view(L.E,:,thread), view(L.F,:,thread))
+end
+
 function face_lift_multiply!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
     @simd for n in axes(x,2)
         @inbounds face_lift_multiply!(view(out,:,n), D, view(x,:,n))
@@ -152,6 +185,7 @@ Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
 
 # Arguments
 ``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
+``L::BernsteinLift``: Order `N` Bernstein lift matrix
 ``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
 """
 function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
@@ -178,6 +212,48 @@ function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVe
                 out[row] += L.G1[ijk_to_linear(i,k,j, tri_offset, tet_offset)] 
                 out[row] += L.G2[ijk_to_linear(j,k,l, tri_offset, tet_offset)] 
                 out[row] += L.G3[ijk_to_linear(j,k,i, tri_offset, tet_offset)] 
+                row += 1
+            end
+        end
+    end
+    return out
+end
+
+"""
+    threaded_mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
+
+Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
+
+# Arguments
+``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
+``L::BernsteinLift``: Order `N` Bernstein lift matrix
+``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
+``thread``: Thread id
+"""
+function threaded_mul!(out::AbstractVector, L::MultithreadedBernsteinLift, x::AbstractVector, thread)
+    N = L.N
+    tri_offset = tri_offset_table[N]
+    tet_offset = tet_offset_table[N]
+
+    Np = div((N + 1) * (N + 2), 2)
+    o1 = Np
+    o2 = 2 * Np
+    o3 = 3 * Np
+    o4 = 4 * Np
+
+    threaded_face_lift_multiply!(out, L, view(x,o3+1:o4), thread)
+    threaded_face_lift_multiply!(view(L.G1,:, thread), L, view(x, 1:o1), thread)
+    threaded_face_lift_multiply!(view(L.G2,:, thread), L, view(x, o1+1:o2), thread)
+    threaded_face_lift_multiply!(view(L.G3,:, thread), L, view(x, o2+1:o3), thread)
+
+    row = 1
+    @inbounds for k in 0:N
+        for j in 0:N-k
+            for i in 0:N-k-j
+                l = N-i-j-k
+                out[row] += L.G1[ijk_to_linear(i,k,j, tri_offset, tet_offset), thread] 
+                out[row] += L.G2[ijk_to_linear(j,k,l, tri_offset, tet_offset), thread] 
+                out[row] += L.G3[ijk_to_linear(j,k,i, tri_offset, tet_offset), thread] 
                 row += 1
             end
         end
