@@ -22,12 +22,12 @@ function bernstein_rhs_matvec!(du, u, params, t)
         end
     end
 
-    @inbounds for e in axes(du, 2)
+    @inbounds Threads.@threads for e in axes(du, 2)
         mul!(view(dudr, :, e), Dr, view(u, :, e))
         mul!(view(duds, :, e), Ds, view(u, :, e))
         mul!(view(dudt, :, e), Dt, view(u, :, e))
 
-        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
+        threaded_mul!(view(du, :, e), LIFT, view(interface_flux, :, e), Threads.threadid())
 
         for i in axes(du, 1)
             du[i, e] += md.rxJ[1, e] * dudr[i, e] + 
@@ -52,8 +52,9 @@ function get_bernstein_vandermonde(N)
     return vande
 end
 
-# non-multithreaded bernstein
-function run_nmt_bernstein_dg(N, K, vande)
+# runs WITH rd/md initialization, which skews results
+function run_bernstein_dg(N, K, vande)
+
     rd = RefElemData(Tet(), N)
 
     (; r, s, Fmask) = rd
@@ -76,7 +77,7 @@ function run_nmt_bernstein_dg(N, K, vande)
     Dr = BernsteinDerivativeMatrix_3D_r(N)
     Ds = BernsteinDerivativeMatrix_3D_s(N)
     Dt = BernsteinDerivativeMatrix_3D_t(N)
-    LIFT = BernsteinLift(N)
+    LIFT = MultithreadedBernsteinLift(N, Threads.nthreads())
 
     # Cache temporary arrays (values are initialized to get the right dimensions)
     cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
@@ -87,10 +88,35 @@ function run_nmt_bernstein_dg(N, K, vande)
 
     # Solve ODE system
     ode = ODEProblem(bernstein_rhs_matvec!, modal_u0, tspan, params)
-    sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25), dt = 0.01)
+    sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25), dt=0.01)
 
     # Convert Bernstein coefficients back to point evaluations
     u = vande * sol.u[end]
+end
+
+function nodal_rhs_matmul!(du, u, params, t)
+    (; rd, md, Dr, Ds, Dt, LIFT) = params
+    (; uM, interface_flux, dudr, duds, dudt) = params.cache
+    
+    uM .= view(u, rd.Fmask, :)
+    
+    for e in axes(uM, 2)
+        for i in axes(uM, 1)
+            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
+                                   0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
+        end
+    end
+
+    # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
+    # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
+    mul!(dudr, Dr, u) 
+    mul!(duds, Ds, u) 
+    mul!(dudt, Dt, u) 
+
+    @. du = md.rxJ * dudr + md.sxJ * duds + md.txJ * dudt
+
+    mul!(du, LIFT, interface_flux, 1, 1)
+    @. du = -du ./ md.J
 end
 
 function get_nodal_lift(N)
@@ -104,51 +130,9 @@ function get_nodal_lift(N)
     return nodal_LIFT
 end
 
-function naive_mul!(C, A, B)
-    n, m = size(A)
-    p = size(B, 2)
-
-    C .= 0
-    
-    @inbounds for i in 1:n
-        for j in 1:p
-            for k in 1:m
-                C[i,j] += A[i,k] * B[k,j]
-            end
-        end
-    end
-    return C
-end
-
-function naive_nodal_rhs_matmul!(du, u, params, t)
-    (; rd, md, Dr, Ds, Dt, LIFT) = params
-    (; uM, interface_flux, dudr, duds, dudt) = params.cache
-    
-    uM .= view(u, rd.Fmask, :)
-    
-    for e in axes(uM, 2)
-        for i in axes(uM, 1)
-            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
-                                   0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
-        end
-    end
+function run_nodal_dg(N, K, lift)
 
     
-    # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
-    # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
-    naive_mul!(dudr, Dr, u) 
-    naive_mul!(duds, Ds, u) 
-    naive_mul!(dudt, Dt, u) 
-
-    du .= 0
-    naive_mul!(du, LIFT, interface_flux)
-
-    @. du += md.rxJ * dudr + md.sxJ * duds + md.txJ * dudt
-    @. du = -du ./ md.J
-end
-
-function run_naive_nodal_dg(N, K, lift)
-
     rd = RefElemData(Tet(), N)
 
     # Create interpolation matrix from Fmask node ordering to quadrature node ordering
@@ -178,7 +162,7 @@ function run_naive_nodal_dg(N, K, lift)
 
     # Solve ODE system
     # Switch out naive_nodal_rhs_matmul / nodal_rhs_matmul
-    ode = ODEProblem(naive_nodal_rhs_matmul!, u0, tspan, params)
+    ode = ODEProblem(nodal_rhs_matmul!, u0, tspan, params)
     sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25), dt = 0.01)
 
     u = sol.u[end]
@@ -186,28 +170,28 @@ function run_naive_nodal_dg(N, K, lift)
     return u
 end
 
-# function make_dg_plot(K)
-#     BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
+function make_plot(K)
+    BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
 
-#     ratio_times = Float64[]
+    ratio_times = Float64[]
 
-#     for N in 1:K
-#         time1 = @benchmark run_nmt_bernstein_dg($N, 2, $(get_bernstein_vandermonde(N)))
+    for N in 1:K
+        time1 = @benchmark run_bernstein_dg($N, 2, $(get_bernstein_vandermonde(N)))
 
-#         time2 = @benchmark run_naive_nodal_dg($N, 2, $(get_nodal_lift(N)))
+        time2 = @benchmark run_nodal_dg($N, 2, $(get_nodal_lift(N)))
 
-#         push!(ratio_times, minimum(time2).time/minimum(time1).time)
-#     end
+        push!(ratio_times, minimum(time2).time/minimum(time1).time)
+    end
 
-#     plot(bar(1:K, ratio_times), 
-#         legend = false, 
-#         title = "Speedup of Bernstein over nodal DG, K = 2, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
-#         yaxis = ("Time (Naive Nodal) / Time (Not-MT Bernstein)"),
-#         xaxis = ("Degree N"),
-#         titlefont = font(10),
-#         xticks = 1:K
-#         )
-# end 
+    plot(bar(1:K, ratio_times), 
+        legend = false, 
+        title = "Speedup of Bernstein over nodal DG, K = 2, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
+        yaxis = ("Time (Nodal) / Time (MT Bernstein)"),
+        xaxis = ("Degree N"),
+        titlefont = font(10),
+        xticks = 1:K
+        )
+end 
 
 function make_rhs_plot(K)
     BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
@@ -234,7 +218,7 @@ function make_rhs_plot(K)
         Dr = BernsteinDerivativeMatrix_3D_r(N)
         Ds = BernsteinDerivativeMatrix_3D_s(N)
         Dt = BernsteinDerivativeMatrix_3D_t(N)
-        LIFT = BernsteinLift(N)
+        LIFT = MultithreadedBernsteinLift(N, Threads.nthreads())
 
         cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
         dudr = similar(md.x), duds = similar(md.x), dudt = similar(md.x))
@@ -249,7 +233,7 @@ function make_rhs_plot(K)
 
         params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 
-        time2 = @benchmark naive_nodal_rhs_matmul!($(similar(u0)), $(u0), $(params), 0)
+        time2 = @benchmark nodal_rhs_matmul!($(similar(u0)), $(u0), $(params), 0)
 
         push!(ratio_times, minimum(time2).time/minimum(time1).time)
     end
@@ -257,22 +241,15 @@ function make_rhs_plot(K)
     plot(bar(1:K, ratio_times), 
         legend = false, 
         title = "Speedup of Bernstein over nodal DG, K = 2, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
-        yaxis = ("Time (Naive Nodal) / Time (Not-MT Bernstein)"),
+        yaxis = ("Time (Nodal) / Time (MT Bernstein)"),
         xaxis = ("Degree N"),
         titlefont = font(10),
         xticks = 1:K
         )
 end 
 
+
 make_rhs_plot(12)
 
-@benchmark run_nmt_bernstein_dg(15, 2, $(get_bernstein_vandermonde(15)))
-@benchmark run_naive_nodal_dg(15, 2, $(get_nodal_lift(15)))
-
-using Profile
-LIFT = get_bernstein_vandermonde(15)
-@profile run_nmt_bernstein_dg(15, 2, LIFT)
-
-using ProfileView
-VSCodeServer.@profview run_nmt_bernstein_dg(15, 2, LIFT)
-
+@benchmark run_bernstein_dg(15, 2, $(get_bernstein_vandermonde(15)))
+@benchmark run_nodal_dg(15, 2, $(get_nodal_lift(15)))

@@ -2,7 +2,7 @@ using BenchmarkTools
 using BernsteinBasis
 using LinearAlgebra
 
-N = 7
+N = 11
 Np2 = div((N + 1) * (N + 2), 2)
 Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
 

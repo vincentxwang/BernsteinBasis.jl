@@ -1,5 +1,4 @@
-# A Bernstein basis DG solver for the 3D advection equation, with
-# multithreading. Make sure that Julia is set to run on more than one thread.
+# A Bernstein basis DG solver for the 3D advection equation.
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -22,12 +21,12 @@ function rhs_matvec!(du, u, params, t)
         end
     end
 
-    @inbounds Threads.@threads for e in axes(du, 2)
+    @inbounds for e in axes(du, 2)
         mul!(view(dudr, :, e), Dr, view(u, :, e))
         mul!(view(duds, :, e), Ds, view(u, :, e))
         mul!(view(dudt, :, e), Dt, view(u, :, e))
 
-        threaded_mul!(view(du, :, e), LIFT, view(interface_flux, :, e), Threads.threadid())
+        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
 
         for i in axes(du, 1)
             du[i, e] += md.rxJ[1, e] * dudr[i, e] + 
@@ -52,7 +51,7 @@ md = MeshData(uniform_mesh(rd.element_type, 4), rd;
               is_periodic=true)
               
 # Problem setup
-tspan = (0.0, 1.0)
+tspan = (0.0, 0.1)
 (; x, y, z) = md
 u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
 
@@ -66,7 +65,7 @@ modal_u0 = vande \ u0
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
 Dt = BernsteinDerivativeMatrix_3D_t(N)
-LIFT = MultithreadedBernsteinLift(N, Threads.nthreads())
+LIFT = BernsteinLift(N)
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
@@ -77,16 +76,11 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
-sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25))
+sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), dt = 0.01)
 
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]
 
 # Test against analytical solution
-u_exact = @. sin(pi * (x - tspan[2])) * sin(pi * y) * sin(pi * z)
+u_exact = @. sin(pi * (x - tspan[2])) * sin(pi * (y - tspan[2])) * sin(pi * (z - tspan[2]))
 @show norm(u - u_exact, Inf)
-
-using BenchmarkTools
-@btime rhs_matvec!($(similar(u0)), $(u0), $(params), $(t))
-
-

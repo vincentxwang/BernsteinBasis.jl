@@ -38,7 +38,7 @@ function rhs_matvec!(du, u, params, t)
 end
 
 # Set polynomial order
-N = 2
+N = 7
 
 rd = RefElemData(Tet(), N)
 
@@ -47,11 +47,11 @@ Fmask = reshape(Fmask, :, 4)
 rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
 
 rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-md = MeshData(uniform_mesh(rd.element_type, 2), rd;               
+md = MeshData(uniform_mesh(rd.element_type, 4), rd;               
               is_periodic=true)
               
 # Problem setup
-tspan = (0.0, 1.0)
+tspan = (0.0, 0.1)
 (; x, y, z) = md
 u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
 
@@ -76,7 +76,7 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
-sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
+sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), dt = 0.01)
 
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]
@@ -84,4 +84,7 @@ u = vande * sol.u[end]
 # Test against analytical solution
 u_exact = @. sin(pi * (x - tspan[2])) * sin(pi * y) * sin(pi * z)
 @show norm(u - u_exact, Inf)
+
+using BenchmarkTools
+@btime rhs_matvec!($(similar(u0)), $(u0), $(params), $(t))
 
