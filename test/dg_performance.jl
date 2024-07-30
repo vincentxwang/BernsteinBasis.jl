@@ -158,7 +158,7 @@ function run_naive_nodal_dg(N, K, lift)
     # recreate RefElemData with nodal points instead of a quadrature rule
     rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
     rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-    md = MeshData(uniform_mesh(rd.element_type, K), rd;               
+    md = MeshData(uniform_mesh(rd.element_type, 2), rd;               
                 is_periodic=true)
 
     # Problem setup
@@ -209,12 +209,14 @@ end
 #         )
 # end 
 
-function make_rhs_plot(K)
+function make_rhs_plot(A, B)
     BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
+
+    K = B - A + 1
 
     ratio_times = Float64[]
 
-    for N in 1:K
+    for N in A:B
 
         rd = RefElemData(Tet(), N)
 
@@ -225,7 +227,7 @@ function make_rhs_plot(K)
         # recreate RefElemData with nodal points instead of a quadrature rule
         rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
         rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
-        md = MeshData(uniform_mesh(rd.element_type, K), rd;               
+        md = MeshData(uniform_mesh(rd.element_type, 2), rd;               
                     is_periodic=true)
 
         (; x, y, z) = md
@@ -234,7 +236,7 @@ function make_rhs_plot(K)
         Dr = BernsteinDerivativeMatrix_3D_r(N)
         Ds = BernsteinDerivativeMatrix_3D_s(N)
         Dt = BernsteinDerivativeMatrix_3D_t(N)
-        LIFT = BernsteinLift(N)
+        LIFT = BernsteinLift{Float64}(N)
 
         cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
         dudr = similar(md.x), duds = similar(md.x), dudt = similar(md.x))
@@ -264,7 +266,7 @@ function make_rhs_plot(K)
         )
 end 
 
-make_rhs_plot(12)
+make_rhs_plot(1, 15)
 
 @benchmark run_nmt_bernstein_dg(15, 2, $(get_bernstein_vandermonde(15)))
 @benchmark run_naive_nodal_dg(15, 2, $(get_nodal_lift(15)))
