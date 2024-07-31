@@ -8,38 +8,6 @@ using SparseArrays
 using BernsteinBasis
 using StaticArrays
 
-function rhs_matvec!(du, u, params, t)
-    (; rd, md, Dr, Ds, Dt, LIFT) = params
-    
-    (; uM, interface_flux, dudr, duds, dudt) = params.cache
-
-    uM .= view(u, rd.Fmask, :)
-
-    @inbounds for e in axes(uM, 2)
-        for i in axes(uM, 1)
-            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
-                                   0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
-        end
-    end
-
-    @inbounds for e in axes(du, 2)
-        # mul!(view(dudr, :, e), Dr, fx.(view(u, :, e)))
-        # mul!(view(duds, :, e), Ds, fx.(view(u, :, e)))
-        # mul!(view(dudt, :, e), Dt, fx.(view(u, :, e)))
-
-        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
-
-        du[:, e] += md.rxJ[1, e] * (Dr * fx.(view(u, :, e))) + md.sxJ[1, e] * (Ds * fx.(view(u, :, e))) + md.txJ[1, e] * (Dt * fx.(view(u, :, e))) + 
-                    md.ryJ[1, e] * (Dr * fy.(view(u, :, e))) + md.syJ[1, e] * (Ds * fy.(view(u, :, e))) + md.tyJ[1, e] * (Dt * fy.(view(u, :, e))) + 
-                    md.rzJ[1, e] * (Dr * fz.(view(u, :, e))) + md.szJ[1, e] * (Ds * fz.(view(u, :, e))) + md.tzJ[1, e] * (Dt * fz.(view(u, :, e)))
-        du[:, e] = -du[:, e] / md.J[1, e]
-    end
-    return du
-end
-
-# Set polynomial order
-N = 9
-
 function fx(q)
     x, y, z = q
     return SVector(x, 0, 0)
@@ -54,6 +22,39 @@ function fz(q)
     x, y, z = q
     return SVector(0, 0, 0)
 end
+
+function rhs_matvec!(du, u, params, t)
+    (; rd, md, Dr, Ds, Dt, LIFT) = params
+    
+    (; uM, interface_flux, dudr, duds, dudt, fxu) = params.cache
+
+    uM .= view(u, rd.Fmask, :)
+
+    @inbounds for e in axes(uM, 2)
+        for i in axes(uM, 1)
+            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
+                                   0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
+        end
+    end
+
+    @inbounds for e in axes(du, 2)
+        fxu = fx.(view(u, :, e))
+
+        mul!(view(dudr, :, e), Dr, fxu)
+        mul!(view(duds, :, e), Ds, fxu)
+        mul!(view(dudt, :, e), Dt, fxu)
+
+        mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
+
+        for i in axes(du, 1)
+            du[i, e] += md.rxJ[1, e] * dudr[i, e] + md.sxJ[1, e] * duds[i, e] + md.txJ[1, e] * dudt[i, e]
+        end
+    end
+    @. du = -du / md.J[1,1]
+end
+
+# Set polynomial order
+N = 7
 
 rd = RefElemData(Tet(), N)
 
@@ -78,7 +79,6 @@ tspan = (0.0, 0.1)
 u0 = @. SVector{3, Float64}(sin(π * x) * sin(π * y) * sin(π * z), 0, 0)
 modal_u0 = inv(vande) * u0
 
-u = modal_u0
 # Initialize operators
 Dr = BernsteinDerivativeMatrix_3D_r(N)
 Ds = BernsteinDerivativeMatrix_3D_s(N)
@@ -87,7 +87,8 @@ LIFT = BernsteinLift{SVector{3,Float64}}(N)
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = modal_u0[rd.Fmask, :], interface_flux = modal_u0[rd.Fmask, :], 
-           dudr = similar(modal_u0), duds = similar(modal_u0), dudt = similar(modal_u0))
+           dudr = similar(modal_u0), duds = similar(modal_u0), dudt = similar(modal_u0),
+           fxu = similar(modal_u0[:, 1]))
 
 # Combine parameters
 params = (; rd, md, Dr, Ds, Dt, LIFT, cache)

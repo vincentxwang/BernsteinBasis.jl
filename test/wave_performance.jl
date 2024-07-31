@@ -9,103 +9,115 @@ using StaticArrays
 using BernsteinBasis
 using BenchmarkTools
 
-function fu(q)
+function fx(q)
     p, u, v, w = q
     return SVector(u, p, 0, 0)
 end
 
-function fv(q)
+function fy(q)
     p, u, v, w = q
     return SVector(v, 0, p, 0)
 end
 
-function fw(q)
+function fz(q)
     p, u, v, w = q
     return SVector(w, 0, 0, p)
 end
 
+# Computes d(p, u, v, w)/dt as a function of u = (p, u, v, w). (note abusive notation).
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     
-    (; uM, interface_flux, dfudr, dfuds, dfudt, dfvdr, dfvds, dfvdt, dfwdr, dfwds, dfwdt) = params.cache
+    (; uM, interface_flux, duM, dfxdr, dfxds, dfxdt, dfydr, dfyds, dfydt, dfzdr, dfzds, dfzdt, fxu, fyu, fzu) = params.cache
     
     uM .= view(u, rd.Fmask, :)
 
     @inbounds for e in axes(uM, 2)
         for i in axes(uM, 1)
-            ndotdU =    md.nxJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[2] + 
-                        md.nyJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[3] +
-                        md.nzJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[4]
+            duM = uM[md.mapP[i,e]] - uM[i,e]
+            ndotdU =    md.nxJ[i,e] * duM[2] + 
+                        md.nyJ[i,e] * duM[3] +
+                        md.nzJ[i,e] * duM[4]
             interface_flux[i, e] = 0.5 * SVector(
-                (uM[md.mapP[i,e]] - uM[i,e])[1] - ndotdU,
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nxJ[i,e],
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nyJ[i,e],
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nzJ[i,e],
+                duM[1] - ndotdU,
+                (ndotdU - duM[1]) * md.nxJ[i,e],
+                (ndotdU - duM[1]) * md.nyJ[i,e],
+                (ndotdU - duM[1]) * md.nzJ[i,e],
             )
         end
     end
 
     @inbounds for e in axes(du, 2)
-        mul!(view(dfudr, :, e), Dr, fu.(view(u, :, e)))
-        mul!(view(dfuds, :, e), Ds, fu.(view(u, :, e)))
-        mul!(view(dfudt, :, e), Dt, fu.(view(u, :, e)))
-        mul!(view(dfvdr, :, e), Dr, fv.(view(u, :, e)))
-        mul!(view(dfvds, :, e), Ds, fv.(view(u, :, e)))
-        mul!(view(dfvdt, :, e), Dt, fv.(view(u, :, e)))
-        mul!(view(dfwdr, :, e), Dr, fw.(view(u, :, e)))
-        mul!(view(dfwds, :, e), Ds, fw.(view(u, :, e)))
-        mul!(view(dfwdt, :, e), Dt, fw.(view(u, :, e)))
+        fxu .= fx.(view(u, :, e))
+        fyu .= fy.(view(u, :, e))
+        fzu .= fz.(view(u, :, e))
+
+        mul!(view(dfxdr, :, e), Dr, fxu)
+        mul!(view(dfxds, :, e), Ds, fxu)
+        mul!(view(dfxdt, :, e), Dt, fxu)
+        mul!(view(dfydr, :, e), Dr, fyu)
+        mul!(view(dfyds, :, e), Ds, fyu)
+        mul!(view(dfydt, :, e), Dt, fyu)
+        mul!(view(dfzdr, :, e), Dr, fzu)
+        mul!(view(dfzds, :, e), Ds, fzu)
+        mul!(view(dfzdt, :, e), Dt, fzu)
 
         mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
 
-        du[:, e] -= (md.rxJ[1, e] * dfudr[:, e] + md.sxJ[1, e] * dfuds[:, e] + md.txJ[1, e] * dfudt[:, e] + 
-                    md.ryJ[1, e] * dfvdr[:, e] + md.syJ[1, e] * dfvds[:, e] + md.tyJ[1, e] * dfvdt[:, e] + 
-                    md.rzJ[1, e] * dfwdr[:, e] + md.szJ[1, e] * dfwds[:, e] + md.tzJ[1, e] * dfwdt[:, e])
-                    
-        du[:, e] = du[:, e] / md.J[1, e]
+        for i in axes(du, 1)
+            du[i, e] -= md.rxJ[1, e] * dfxdr[i, e] + md.sxJ[1, e] * dfxds[i, e] + md.txJ[1, e] * dfxdt[i, e] + 
+            md.ryJ[1, e] * dfydr[i, e] + md.syJ[1, e] * dfyds[i, e] + md.tyJ[1, e] * dfydt[i, e] + 
+            md.rzJ[1, e] * dfzdr[i, e] + md.szJ[1, e] * dfzds[i, e] + md.tzJ[1, e] * dfzdt[i, e]
+        end
     end
+
+    # Note md.J is constant matrix.
+    @. du = du / md.J[1,1]
 end
 
-# Computes d(p, u, v, w)/dt as a function of u = (p, u, v, w). (note abusive notation).
 function rhs_matmat!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     
-    (; uM, interface_flux, dfudr, dfuds, dfudt, dfvdr, dfvds, dfvdt, dfwdr, dfwds, dfwdt) = params.cache
+    (; uM, interface_flux, duM, dfxdr, dfxds, dfxdt, dfydr, dfyds, dfydt, dfzdr, dfzds, dfzdt, fxu, fyu, fzu) = params.cache
     
     uM .= view(u, rd.Fmask, :)
 
     @inbounds for e in axes(uM, 2)
         for i in axes(uM, 1)
-            ndotdU =    md.nxJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[2] + 
-                        md.nyJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[3] +
-                        md.nzJ[i,e] * (uM[md.mapP[i,e]] - uM[i,e])[4]
+            duM = uM[md.mapP[i,e]] - uM[i,e]
+            ndotdU =    md.nxJ[i,e] * duM[2] + 
+                        md.nyJ[i,e] * duM[3] +
+                        md.nzJ[i,e] * duM[4]
             interface_flux[i, e] = 0.5 * SVector(
-                (uM[md.mapP[i,e]] - uM[i,e])[1] - ndotdU,
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nxJ[i,e],
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nyJ[i,e],
-                (ndotdU - (uM[md.mapP[i,e]] - uM[i,e])[1]) * md.nzJ[i,e],
+                duM[1] - ndotdU,
+                (ndotdU - duM[1]) * md.nxJ[i,e],
+                (ndotdU - duM[1]) * md.nyJ[i,e],
+                (ndotdU - duM[1]) * md.nzJ[i,e],
             )
         end
     end
 
-    mul!(dfudr, Dr, fu.(u))
-    mul!(dfuds, Ds, fu.(u))
-    mul!(dfudt, Dt, fu.(u))
-    mul!(dfvdr, Dr, fv.(u))
-    mul!(dfvds, Ds, fv.(u))
-    mul!(dfvdt, Dt, fv.(u))
-    mul!(dfwdr, Dr, fw.(u))
-    mul!(dfwds, Ds, fw.(u))
-    mul!(dfwdt, Dt, fw.(u))
+    fxu .= fx.(u)
+    fyu .= fy.(u)
+    fzu .= fz.(u)
 
-    @. du = md.rxJ * dfudr + md.sxJ * dfuds + md.txJ * dfudt + 
-            md.ryJ * dfvdr + md.syJ * dfvds + md.tyJ * dfvdt + 
-            md.rzJ * dfwdr + md.szJ * dfwds + md.tzJ * dfwdt
+    mul!(dfxdr, Dr, fxu)
+    mul!(dfxds, Ds, fxu)
+    mul!(dfxdt, Dt, fxu)
+    mul!(dfydr, Dr, fyu)
+    mul!(dfyds, Ds, fyu)
+    mul!(dfydt, Dt, fyu)
+    mul!(dfzdr, Dr, fzu)
+    mul!(dfzds, Ds, fzu)
+    mul!(dfzdt, Dt, fzu)
+
+    @. du = md.rxJ * dfxdr + md.sxJ * dfxds + md.txJ * dfxdt + 
+            md.ryJ * dfydr + md.syJ * dfyds + md.tyJ * dfydt + 
+            md.rzJ * dfzdr + md.szJ * dfzds + md.tzJ * dfzdt
     
     mul!(du, LIFT, interface_flux, 1, -1)
 
-    @. du = du ./ md.J
-    return du
+    @. du = du ./ md.J[1, 1]
 end
 
 function get_bernstein_vandermonde(N)
@@ -131,48 +143,6 @@ function get_nodal_lift(N)
     nodal_LIFT = rd.LIFT * kron(I(4), Vq_face)
 
     return nodal_LIFT
-end
-
-function naive_mul!(C, A, B)
-    n, m = size(A)
-    p = size(B, 2)
-
-    C .= 0
-    
-    @inbounds for i in 1:n
-        for j in 1:p
-            for k in 1:m
-                C[i,j] += A[i,k] * B[k,j]
-            end
-        end
-    end
-    return C
-end
-
-function naive_nodal_rhs_matmul!(du, u, params, t)
-    (; rd, md, Dr, Ds, Dt, LIFT) = params
-    (; uM, interface_flux, dudr, duds, dudt) = params.cache
-    
-    uM .= view(u, rd.Fmask, :)
-    
-    for e in axes(uM, 2)
-        for i in axes(uM, 1)
-            interface_flux[i, e] = 0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.nxJ[i,e] - 
-                                   0.5 * (uM[md.mapP[i,e]] - uM[i,e]) * md.Jf[i,e]
-        end
-    end
-
-    # u(x,y,z) = u(x(r,s,t), y(r,s,t), z(r,s,t)) 
-    # --> du/dx = du/dr * dr/dx + du/ds * ds/dx + du/dt * dt/dz
-    naive_mul!(dudr, Dr, u) 
-    naive_mul!(duds, Ds, u) 
-    naive_mul!(dudt, Dt, u) 
-
-    du .= 0
-    naive_mul!(du, LIFT, interface_flux)
-
-    @. du += md.rxJ * dudr + md.sxJ * duds + md.txJ * dudt
-    @. du = -du ./ md.J
 end
 
 
@@ -208,15 +178,24 @@ function make_rhs_plot(K)
         LIFT = BernsteinLift{SVector{4, Float64}}(N)
 
         cache = (; uM = u0[rd.Fmask, :], interface_flux = u0[rd.Fmask, :], 
-        dfudr = similar(u0), dfuds = similar(u0), dfudt = similar(u0),
-        dfvdr = similar(u0), dfvds = similar(u0), dfvdt = similar(u0),
-        dfwdr = similar(u0), dfwds = similar(u0), dfwdt = similar(u0),)
+           duM = u0[rd.Fmask, :],
+           dfxdr = similar(u0), dfxds = similar(u0), dfxdt = similar(u0),
+           dfydr = similar(u0), dfyds = similar(u0), dfydt = similar(u0),
+           dfzdr = similar(u0), dfzds = similar(u0), dfzdt = similar(u0),
+           fxu = similar(u0[:, 1]), fyu = similar(u0[:, 1]), fzu = similar(u0[:, 1]))
 
         # Combine parameters
         params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 
         time1 = @benchmark rhs_matvec!($(similar(u0)), $(u0), $(params), 0)
-
+        
+        cache = (; uM = u0[rd.Fmask, :], interface_flux = u0[rd.Fmask, :], 
+           duM = u0[rd.Fmask, :],
+           dfxdr = similar(u0), dfxds = similar(u0), dfxdt = similar(u0),
+           dfydr = similar(u0), dfyds = similar(u0), dfydt = similar(u0),
+           dfzdr = similar(u0), dfzds = similar(u0), dfzdt = similar(u0),
+           fxu = similar(u0), fyu = similar(u0), fzu = similar(u0))
+        
         (; Dr, Ds, Dt) = rd
         LIFT = get_nodal_lift(N)
 

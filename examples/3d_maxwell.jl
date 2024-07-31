@@ -57,10 +57,9 @@ function rhs_matvec!(du, u, params, t)
     end
 
     @inbounds for e in axes(du, 2)
-        # Allocates some memory, but is quicker than broadcasting to fxu, fyu, fzu.
-        fxu = fx.(view(u, :, e))
-        fyu = fy.(view(u, :, e))
-        fzu = fz.(view(u, :, e))
+        fxu .= fx.(view(u, :, e))
+        fyu .= fy.(view(u, :, e))
+        fzu .= fz.(view(u, :, e))
 
         mul!(view(dfxdr, :, e), Dr, fxu)
         mul!(view(dfxds, :, e), Ds, fxu)
@@ -73,7 +72,7 @@ function rhs_matvec!(du, u, params, t)
         mul!(view(dfzdt, :, e), Dt, fzu)
 
         mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
-        
+
         for i in axes(du, 1)
             du[i, e] += md.rxJ[1, e] * dfxdr[i, e] + md.sxJ[1, e] * dfxds[i, e] + md.txJ[1, e] * dfxdt[i, e] + 
             md.ryJ[1, e] * dfydr[i, e] + md.syJ[1, e] * dfyds[i, e] + md.tyJ[1, e] * dfydt[i, e] + 
@@ -86,7 +85,7 @@ function rhs_matvec!(du, u, params, t)
 end
 
 # Set polynomial order
-N = 9
+N = 7
 
 rd = RefElemData(Tet(), N)
 

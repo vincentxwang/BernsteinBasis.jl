@@ -15,17 +15,17 @@ using StaticArrays
 # dvdt + dp/dy                 = 0
 # dwdt + dp/dz                 = 0
 
-function fu(q)
+function fx(q)
     p, u, v, w = q
     return SVector(u, p, 0, 0)
 end
 
-function fv(q)
+function fy(q)
     p, u, v, w = q
     return SVector(v, 0, p, 0)
 end
 
-function fw(q)
+function fz(q)
     p, u, v, w = q
     return SVector(w, 0, 0, p)
 end
@@ -34,7 +34,7 @@ end
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     
-    (; uM, interface_flux, dfudr, dfuds, dfudt, dfvdr, dfvds, dfvdt, dfwdr, dfwds, dfwdt) = params.cache
+    (; uM, interface_flux, duM, dfxdr, dfxds, dfxdt, dfydr, dfyds, dfydt, dfzdr, dfzds, dfzdt, fxu, fyu, fzu) = params.cache
     
     uM .= view(u, rd.Fmask, :)
 
@@ -54,30 +54,35 @@ function rhs_matvec!(du, u, params, t)
     end
 
     @inbounds for e in axes(du, 2)
-        # TODO: fu/fv/fw cache
-        mul!(view(dfudr, :, e), Dr, fu.(view(u, :, e)))
-        mul!(view(dfuds, :, e), Ds, fu.(view(u, :, e)))
-        mul!(view(dfudt, :, e), Dt, fu.(view(u, :, e)))
-        mul!(view(dfvdr, :, e), Dr, fv.(view(u, :, e)))
-        mul!(view(dfvds, :, e), Ds, fv.(view(u, :, e)))
-        mul!(view(dfvdt, :, e), Dt, fv.(view(u, :, e)))
-        mul!(view(dfwdr, :, e), Dr, fw.(view(u, :, e)))
-        mul!(view(dfwds, :, e), Ds, fw.(view(u, :, e)))
-        mul!(view(dfwdt, :, e), Dt, fw.(view(u, :, e)))
+        fxu .= fx.(view(u, :, e))
+        fyu .= fy.(view(u, :, e))
+        fzu .= fz.(view(u, :, e))
+
+        mul!(view(dfxdr, :, e), Dr, fxu)
+        mul!(view(dfxds, :, e), Ds, fxu)
+        mul!(view(dfxdt, :, e), Dt, fxu)
+        mul!(view(dfydr, :, e), Dr, fyu)
+        mul!(view(dfyds, :, e), Ds, fyu)
+        mul!(view(dfydt, :, e), Dt, fyu)
+        mul!(view(dfzdr, :, e), Dr, fzu)
+        mul!(view(dfzds, :, e), Ds, fzu)
+        mul!(view(dfzdt, :, e), Dt, fzu)
 
         mul!(view(du, :, e), LIFT, view(interface_flux, :, e))
 
-        # TODO: broadcast or loop
-        du[:, e] -= (md.rxJ[1, e] * dfudr[:, e] + md.sxJ[1, e] * dfuds[:, e] + md.txJ[1, e] * dfudt[:, e] + 
-                    md.ryJ[1, e] * dfvdr[:, e] + md.syJ[1, e] * dfvds[:, e] + md.tyJ[1, e] * dfvdt[:, e] + 
-                    md.rzJ[1, e] * dfwdr[:, e] + md.szJ[1, e] * dfwds[:, e] + md.tzJ[1, e] * dfwdt[:, e])
-                    
-        du[:, e] = du[:, e] / md.J[1, e]
+        for i in axes(du, 1)
+            du[i, e] -= md.rxJ[1, e] * dfxdr[i, e] + md.sxJ[1, e] * dfxds[i, e] + md.txJ[1, e] * dfxdt[i, e] + 
+            md.ryJ[1, e] * dfydr[i, e] + md.syJ[1, e] * dfyds[i, e] + md.tyJ[1, e] * dfydt[i, e] + 
+            md.rzJ[1, e] * dfzdr[i, e] + md.szJ[1, e] * dfzds[i, e] + md.tzJ[1, e] * dfzdt[i, e]
+        end
     end
+
+    # Note md.J is constant matrix.
+    @. du = du / md.J[1,1]
 end
 
 # Set polynomial order
-N = 4
+N = 7
 
 rd = RefElemData(Tet(), N)
 
@@ -113,9 +118,11 @@ LIFT = BernsteinLift{SVector{4, Float64}}(N)
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = modal_u0[rd.Fmask, :], interface_flux = modal_u0[rd.Fmask, :], 
-           dfudr = similar(modal_u0), dfuds = similar(modal_u0), dfudt = similar(modal_u0),
-           dfvdr = similar(modal_u0), dfvds = similar(modal_u0), dfvdt = similar(modal_u0),
-           dfwdr = similar(modal_u0), dfwds = similar(modal_u0), dfwdt = similar(modal_u0),)
+           duM = modal_u0[rd.Fmask, :],
+           dfxdr = similar(modal_u0), dfxds = similar(modal_u0), dfxdt = similar(modal_u0),
+           dfydr = similar(modal_u0), dfyds = similar(modal_u0), dfydt = similar(modal_u0),
+           dfzdr = similar(modal_u0), dfzds = similar(modal_u0), dfzdt = similar(modal_u0),
+           fxu = similar(modal_u0[:, 1]), fyu = similar(modal_u0[:, 1]), fzu = similar(modal_u0[:, 1]))
 
 # Combine parameters
 params = (; rd, md, Dr, Ds, Dt, LIFT, cache)

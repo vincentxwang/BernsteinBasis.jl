@@ -22,7 +22,7 @@
     end
 
     # Set polynomial order
-    N = 8
+    N = 7
 
     # Problem setup
     rd = RefElemData(Line(), N)

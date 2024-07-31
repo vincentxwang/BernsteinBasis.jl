@@ -35,12 +35,10 @@ function rhs_matvec!(du, u, params, t)
             du[i, e] = -du[i, e] / md.J[1, e]
         end
     end
-
-    return du
 end
 
 # Set polynomial order
-N = 9
+N = 7
 
 rd = RefElemData(Tet(), N)
 

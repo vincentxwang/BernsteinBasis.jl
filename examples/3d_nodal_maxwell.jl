@@ -10,7 +10,7 @@ using BernsteinBasis
 using StaticArrays
 
 # Set polynomial order
-N = 4
+N = 7
 
 function fx(u)
     Hx, Hy, Hz, Ex, Ey, Ez = u
@@ -59,10 +59,9 @@ function rhs_matvec!(du, u, params, t)
         end
     end
 
-
-    fxu = fx.(u)
-    fyu = fy.(u)
-    fzu = fz.(u)
+    fxu .= fx.(u)
+    fyu .= fy.(u)
+    fzu .= fz.(u)
 
     mul!(dfxdr, Dr, fxu)
     mul!(dfxds, Ds, fxu)
@@ -79,8 +78,9 @@ function rhs_matvec!(du, u, params, t)
             md.rzJ * dfzdr + md.szJ * dfzds + md.tzJ * dfzdt
     
     mul!(du, LIFT, interface_flux, 1, 1)
-    @. du = du ./ md.J
-    return du
+
+     # Note md.J is constant matrix.
+    @. du = du / md.J[1, 1]
 end
 
 rd = RefElemData(Tet(), N)
@@ -111,6 +111,7 @@ LIFT = nodal_LIFT
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = u0[rd.Fmask, :], interface_flux = u0[rd.Fmask, :], 
+           duM = u0[rd.Fmask, :],
            dfxdr = similar(u0), dfxds = similar(u0), dfxdt = similar(u0),
            dfydr = similar(u0), dfyds = similar(u0), dfydt = similar(u0),
            dfzdr = similar(u0), dfzds = similar(u0), dfzdt = similar(u0),
@@ -122,8 +123,6 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), dt = 0.01)
-
-@btime rhs_matvec!(similar(u0), u0, params, 0)
 
 # Convert Bernstein coefficients back to point evaluations
 u = sol.u[end]

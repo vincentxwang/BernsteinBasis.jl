@@ -10,20 +10,20 @@ using BernsteinBasis
 using StaticArrays
 
 # Set polynomial order
-N = 5
+N = 7
 
 
-function fu(q)
+function fx(q)
     p, u, v, w = q
     return SVector(u, p, 0, 0)
 end
 
-function fv(q)
+function fy(q)
     p, u, v, w = q
     return SVector(v, 0, p, 0)
 end
 
-function fw(q)
+function fz(q)
     p, u, v, w = q
     return SVector(w, 0, 0, p)
 end
@@ -32,7 +32,7 @@ end
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     
-    (; uM, interface_flux, dfudr, dfuds, dfudt, dfvdr, dfvds, dfvdt, dfwdr, dfwds, dfwdt) = params.cache
+    (; uM, interface_flux, duM, dfxdr, dfxds, dfxdt, dfydr, dfyds, dfydt, dfzdr, dfzds, dfzdt, fxu, fyu, fzu) = params.cache
     
     uM .= view(u, rd.Fmask, :)
 
@@ -51,24 +51,27 @@ function rhs_matvec!(du, u, params, t)
         end
     end
 
-    mul!(dfudr, Dr, fu.(u))
-    mul!(dfuds, Ds, fu.(u))
-    mul!(dfudt, Dt, fu.(u))
-    mul!(dfvdr, Dr, fv.(u))
-    mul!(dfvds, Ds, fv.(u))
-    mul!(dfvdt, Dt, fv.(u))
-    mul!(dfwdr, Dr, fw.(u))
-    mul!(dfwds, Ds, fw.(u))
-    mul!(dfwdt, Dt, fw.(u))
+    fxu .= fx.(u)
+    fyu .= fy.(u)
+    fzu .= fz.(u)
 
-    @. du = md.rxJ * dfudr + md.sxJ * dfuds + md.txJ * dfudt + 
-            md.ryJ * dfvdr + md.syJ * dfvds + md.tyJ * dfvdt + 
-            md.rzJ * dfwdr + md.szJ * dfwds + md.tzJ * dfwdt
+    mul!(dfxdr, Dr, fxu)
+    mul!(dfxds, Ds, fxu)
+    mul!(dfxdt, Dt, fxu)
+    mul!(dfydr, Dr, fyu)
+    mul!(dfyds, Ds, fyu)
+    mul!(dfydt, Dt, fyu)
+    mul!(dfzdr, Dr, fzu)
+    mul!(dfzds, Ds, fzu)
+    mul!(dfzdt, Dt, fzu)
+
+    @. du = md.rxJ * dfxdr + md.sxJ * dfxds + md.txJ * dfxdt + 
+            md.ryJ * dfydr + md.syJ * dfyds + md.tyJ * dfydt + 
+            md.rzJ * dfzdr + md.szJ * dfzds + md.tzJ * dfzdt
     
     mul!(du, LIFT, interface_flux, 1, -1)
 
-    @. du = du ./ md.J
-    return du
+    @. du = du ./ md.J[1, 1]
 end
 
 rd = RefElemData(Tet(), N)
@@ -104,9 +107,11 @@ LIFT = nodal_LIFT
 
 # Cache temporary arrays (values are initialized to get the right dimensions)
 cache = (; uM = u0[rd.Fmask, :], interface_flux = u0[rd.Fmask, :], 
-           dfudr = similar(u0), dfuds = similar(u0), dfudt = similar(u0),
-           dfvdr = similar(u0), dfvds = similar(u0), dfvdt = similar(u0),
-           dfwdr = similar(u0), dfwds = similar(u0), dfwdt = similar(u0),)
+           duM = u0[rd.Fmask, :],
+           dfxdr = similar(u0), dfxds = similar(u0), dfxdt = similar(u0),
+           dfydr = similar(u0), dfyds = similar(u0), dfydt = similar(u0),
+           dfzdr = similar(u0), dfzds = similar(u0), dfzdt = similar(u0),
+           fxu = similar(u0), fyu = similar(u0), fzu = similar(u0))
 
 # Combine parameters
 params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
