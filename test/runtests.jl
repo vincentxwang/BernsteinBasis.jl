@@ -43,7 +43,7 @@ end
 
         result = Lf * x
         out = similar(result)
-        @test result ≈ BernsteinBasis.face_lift_multiply!(out, BernsteinLift(N), x)
+        @test result ≈ BernsteinBasis.face_lift_multiply!(out, BernsteinLift{Float64}(N), x)
     end
 end
 
@@ -111,8 +111,8 @@ end
         Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
         X = rand(Float64, 4 * Np2)
         Y = rand(Float64, 4 * Np2, 2)
-        @test BernsteinBasis.get_bernstein_lift(N) * X ≈ mul!(zeros(Np3), BernsteinLift(N), X)
-        @test BernsteinBasis.get_bernstein_lift(N) * Y ≈ mul!(zeros(Np3, 2), BernsteinLift(N), Y) 
+        @test BernsteinBasis.get_bernstein_lift(N) * X ≈ mul!(zeros(Np3), BernsteinLift{Float64}(N), X)
+        @test BernsteinBasis.get_bernstein_lift(N) * Y ≈ mul!(zeros(Np3, 2), BernsteinLift{Float64}(N), Y) 
     end
 end
 
@@ -121,7 +121,7 @@ end
         Np2 = div((N + 1) * (N + 2), 2)
         Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
         X = rand(Float64, 4 * Np2)
-        @test BernsteinBasis.get_bernstein_lift(N) * X ≈ threaded_mul!(zeros(Np3), BernsteinBasis.MultithreadedBernsteinLift(N, 4), X, 3)
+        @test BernsteinBasis.get_bernstein_lift(N) * X ≈ threaded_mul!(zeros(Np3), BernsteinBasis.MultithreadedBernsteinLift{Float64}(N, 4), X, 3)
     end
 end
 
@@ -164,7 +164,7 @@ end
         VBf1, _ = bernstein_basis(Tri(), N, rf[:,4], sf[:,4])
         
         (; r, s, t) = rd
-        
+
         vande, _ = bernstein_basis(Tet(), N, r, s, t)
 
         @test BernsteinBasis.get_bernstein_lift(N) ≈ inv(vande) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)     
