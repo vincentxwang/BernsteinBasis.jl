@@ -164,7 +164,7 @@ end
         VBf1, _ = bernstein_basis(Tri(), N, rf[:,4], sf[:,4])
         
         (; r, s, t) = rd
-
+        
         vande, _ = bernstein_basis(Tet(), N, r, s, t)
 
         @test BernsteinBasis.get_bernstein_lift(N) ≈ inv(vande) * nodal_LIFT * blockdiag(sparse.((VBf1, VBf2, VBf3, VBf4))...)     

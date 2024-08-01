@@ -12,20 +12,19 @@ using StaticArrays
 # Set polynomial order
 N = 7
 
-
 function fx(q)
     p, u, v, w = q
-    return SVector(u, p, 0, 0)
+    return SVector(u, p, 0.0, 0.0)
 end
 
 function fy(q)
     p, u, v, w = q
-    return SVector(v, 0, p, 0)
+    return SVector(v, 0.0, p, 0.0)
 end
 
 function fz(q)
     p, u, v, w = q
-    return SVector(w, 0, 0, p)
+    return SVector(w, 0.0, 0.0, p)
 end
 
 # Computes d(p, u, v, w)/dt as a function of u = (p, u, v, w). (note abusive notation).
