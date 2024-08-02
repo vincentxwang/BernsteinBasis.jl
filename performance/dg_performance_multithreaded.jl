@@ -185,7 +185,7 @@ function make_plot(K)
 
     plot(bar(1:K, ratio_times), 
         legend = false, 
-        title = "Speedup of Bernstein over nodal DG, K = 2, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
+        title = "Speedup of Bernstein over nodal DG, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
         yaxis = ("Time (Nodal) / Time (MT Bernstein)"),
         xaxis = ("Degree N"),
         titlefont = font(10),
