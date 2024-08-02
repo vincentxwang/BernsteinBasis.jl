@@ -2,10 +2,9 @@ using BenchmarkTools
 using BernsteinBasis
 using LinearAlgebra
 
-N = 7
+N = 11
 Np2 = div((N + 1) * (N + 2), 2)
 Np3 = div((N + 1) * (N + 2) * (N + 3), 6)
-
 
 println("Lift matrix-vector multiplication for N = ", N)
 @btime mul!($(zeros(Np3)), $(BernsteinLift(N)), $(rand(Float64, 4 * Np2)))

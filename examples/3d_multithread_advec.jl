@@ -77,7 +77,7 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
-sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
+sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25))
 
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]
@@ -85,4 +85,8 @@ u = vande * sol.u[end]
 # Test against analytical solution
 u_exact = @. sin(pi * (x - tspan[2])) * sin(pi * y) * sin(pi * z)
 @show norm(u - u_exact, Inf)
+
+using BenchmarkTools
+@btime rhs_matvec!($(similar(u0)), $(u0), $(params), $(t))
+
 

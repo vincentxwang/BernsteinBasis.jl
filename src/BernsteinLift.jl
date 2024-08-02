@@ -9,21 +9,21 @@ multiplications.
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
   [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
-struct BernsteinLift 
+struct BernsteinLift{T}
     N::Int
     # Preallocated vectors for intermediate computations
-    E::Vector{Float64}
-    F::Vector{Float64}
-    G1::Vector{Float64}
-    G2::Vector{Float64}
-    G3::Vector{Float64}
+    E::Vector{T}
+    F::Vector{T}
+    G1::Vector{T}
+    G2::Vector{T}
+    G3::Vector{T}
 end
 
-function BernsteinLift(N)
+function BernsteinLift{T}(N) where {T}
     Np1 = div((N+1) * (N+2), 2)
     Np2 = div((N+2) * (N+3), 2)
     Np3 = div((N+1) * (N+2) * (N+3), 6)
-    BernsteinLift(N, zeros(Np1), zeros(Np2), zeros(Np3), zeros(Np3), zeros(Np3))
+    BernsteinLift{T}(N, zeros(T, Np1), zeros(T, Np2), zeros(T, Np3), zeros(T, Np3), zeros(T, Np3))
 end
 
 """
@@ -37,22 +37,22 @@ multiplications.
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
   [DOI: 10.48550/arXiv.1512.06025](https://doi.org/10.48550/arXiv.1512.06025)
 """
-struct MultithreadedBernsteinLift 
+struct MultithreadedBernsteinLift{T}
     N::Int
     # Preallocated vectors for intermediate computations, each column is for a
     # thread with corresponding id
-    E::Matrix{Float64}
-    F::Matrix{Float64}
-    G1::Matrix{Float64}
-    G2::Matrix{Float64}
-    G3::Matrix{Float64}
+    E::Matrix{T}
+    F::Matrix{T}
+    G1::Matrix{T}
+    G2::Matrix{T}
+    G3::Matrix{T}
 end
 
-function MultithreadedBernsteinLift(N, threads)
+function MultithreadedBernsteinLift{T}(N, threads) where {T}
     Np1 = div((N+1) * (N+2), 2)
     Np2 = div((N+2) * (N+3), 2)
     Np3 = div((N+1) * (N+2) * (N+3), 6)
-    MultithreadedBernsteinLift(N, zeros(Np1, threads), zeros(Np2, threads), zeros(Np3, threads), zeros(Np3, threads), zeros(Np3, threads))
+    MultithreadedBernsteinLift{T}(N, zeros(Np1, threads), zeros(Np2, threads), zeros(Np3, threads), zeros(Np3, threads), zeros(Np3, threads))
 end
 
 """
@@ -163,15 +163,15 @@ function face_lift_multiply!(out, N, x, E, F)
     return out
 end
 
-function face_lift_multiply!(out::AbstractVector{T}, L::BernsteinLift, x::AbstractVector{T}) where T<:Real
+function face_lift_multiply!(out::AbstractVector{T}, L::BernsteinLift, x::AbstractVector{T}) where {T}
     face_lift_multiply!(out, L.N, x, L.E, L.F)
 end
 
-function threaded_face_lift_multiply!(out::AbstractVector{T}, L::MultithreadedBernsteinLift, x::AbstractVector{T}, thread) where T<:Real
+function threaded_face_lift_multiply!(out::AbstractVector{T}, L::MultithreadedBernsteinLift, x::AbstractVector{T}, thread) where {T}
     face_lift_multiply!(out, L.N, x, view(L.E,:,thread), view(L.F,:,thread))
 end
 
-function face_lift_multiply!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where T<:Real
+function face_lift_multiply!(out::AbstractMatrix{T}, D::BernsteinLift, x::AbstractMatrix{T}) where {T}
     @simd for n in axes(x,2)
         @inbounds face_lift_multiply!(view(out,:,n), D, view(x,:,n))
     end
@@ -230,7 +230,7 @@ Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
 ``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
 ``thread``: Thread id
 """
-function threaded_mul!(out::AbstractVector, L::MultithreadedBernsteinLift, x::AbstractVector, thread)
+function threaded_mul!(out::AbstractVector{T}, L::MultithreadedBernsteinLift, x::AbstractVector{T}, thread) where {T}
     N = L.N
     tri_offset = tri_offset_table[N]
     tet_offset = tet_offset_table[N]

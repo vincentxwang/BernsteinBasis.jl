@@ -38,7 +38,22 @@ function bernstein_rhs_matvec!(du, u, params, t)
     end
 end
 
-function run_bernstein_dg(N, K)
+function get_bernstein_vandermonde(N)
+    rd = RefElemData(Tet(), N)
+
+    (; r, s, Fmask) = rd
+    Fmask = reshape(Fmask, :, 4)
+    rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
+
+    rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
+
+    (; r, s, t) = rd
+    vande, _ = bernstein_basis(Tet(), N, r, s, t)
+    return vande
+end
+
+# runs WITH rd/md initialization, which skews results
+function run_bernstein_dg(N, K, vande)
 
     rd = RefElemData(Tet(), N)
 
@@ -51,14 +66,11 @@ function run_bernstein_dg(N, K)
                 is_periodic=true)
                 
     # Problem setup
-    tspan = (0.0, 1.0)
+    tspan = (0.0, 0.1)
     (; x, y, z) = md
     u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
 
-
     # Convert initial conditions to Bernstein coefficients
-    (; r, s, t) = rd
-    vande, _ = bernstein_basis(Tet(), N, r, s, t)
     modal_u0 = vande \ u0
 
     # Initialize operators
@@ -76,7 +88,7 @@ function run_bernstein_dg(N, K)
 
     # Solve ODE system
     ode = ODEProblem(bernstein_rhs_matvec!, modal_u0, tspan, params)
-    sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
+    sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25), dt=0.01)
 
     # Convert Bernstein coefficients back to point evaluations
     u = vande * sol.u[end]
@@ -119,6 +131,8 @@ function get_nodal_lift(N)
 end
 
 function run_nodal_dg(N, K, lift)
+
+    
     rd = RefElemData(Tet(), N)
 
     # Create interpolation matrix from Fmask node ordering to quadrature node ordering
@@ -132,7 +146,7 @@ function run_nodal_dg(N, K, lift)
                 is_periodic=true)
 
     # Problem setup
-    tspan = (0.0, 1.0)
+    tspan = (0.0, 0.1)
     (; x, y, z) = md
     u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
 
@@ -147,19 +161,22 @@ function run_nodal_dg(N, K, lift)
     params = (; rd, md, Dr, Ds, Dt, LIFT=lift, cache)
 
     # Solve ODE system
+    # Switch out naive_nodal_rhs_matmul / nodal_rhs_matmul
     ode = ODEProblem(nodal_rhs_matmul!, u0, tspan, params)
-    sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25))
+    sol = solve(ode, RK4(), saveat=LinRange(tspan..., 25), dt = 0.01)
 
     u = sol.u[end]
+    
+    return u
 end
 
 function make_plot(K)
-    BenchmarkTools.DEFAULT_PARAMETERS.samples = 10
+    BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
 
     ratio_times = Float64[]
 
     for N in 1:K
-        time1 = @benchmark run_bernstein_dg($N, 2)
+        time1 = @benchmark run_bernstein_dg($N, 2, $(get_bernstein_vandermonde(N)))
 
         time2 = @benchmark run_nodal_dg($N, 2, $(get_nodal_lift(N)))
 
@@ -168,12 +185,71 @@ function make_plot(K)
 
     plot(bar(1:K, ratio_times), 
         legend = false, 
-        title = "Speedup of Bernstein over nodal DG, K = 2, min times over 10 samples",
-        yaxis = ("Time (Nodal) / Time (Bernstein)"),
+        title = "Speedup of Bernstein over nodal DG, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
+        yaxis = ("Time (Nodal) / Time (MT Bernstein)"),
         xaxis = ("Degree N"),
         titlefont = font(10),
         xticks = 1:K
         )
 end 
 
-make_plot(10)
+function make_rhs_plot(K)
+    BenchmarkTools.DEFAULT_PARAMETERS.samples = 15
+
+    ratio_times = Float64[]
+
+    for N in 1:K
+
+        rd = RefElemData(Tet(), N)
+
+        # Create interpolation matrix from Fmask node ordering to quadrature node ordering
+        (; r, s, Fmask) = rd
+        Fmask = reshape(Fmask, :, 4)
+
+        # recreate RefElemData with nodal points instead of a quadrature rule
+        rf, sf = rd.r[Fmask[:,1]], rd.t[Fmask[:,1]]
+        rd = RefElemData(Tet(), N; quad_rule_face = (rf, sf, ones(length(rf))))
+        md = MeshData(uniform_mesh(rd.element_type, K), rd;               
+                    is_periodic=true)
+
+        (; x, y, z) = md
+        u0 = @. sin(pi * x) * sin(pi * y) * sin(pi * z)
+
+        Dr = BernsteinDerivativeMatrix_3D_r(N)
+        Ds = BernsteinDerivativeMatrix_3D_s(N)
+        Dt = BernsteinDerivativeMatrix_3D_t(N)
+        LIFT = MultithreadedBernsteinLift(N, Threads.nthreads())
+
+        cache = (; uM = md.x[rd.Fmask, :], interface_flux = md.x[rd.Fmask, :], 
+        dudr = similar(md.x), duds = similar(md.x), dudt = similar(md.x))
+
+        # Combine parameters
+        params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
+
+        time1 = @benchmark bernstein_rhs_matvec!($(similar(u0)), $(u0), $(params), 0)
+
+        (; Dr, Ds, Dt) = rd
+        LIFT = get_nodal_lift(N)
+
+        params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
+
+        time2 = @benchmark nodal_rhs_matmul!($(similar(u0)), $(u0), $(params), 0)
+
+        push!(ratio_times, minimum(time2).time/minimum(time1).time)
+    end
+
+    plot(bar(1:K, ratio_times), 
+        legend = false, 
+        title = "Speedup of Bernstein over nodal DG, K = 2, min times over $(BenchmarkTools.DEFAULT_PARAMETERS.samples) samples",
+        yaxis = ("Time (Nodal) / Time (MT Bernstein)"),
+        xaxis = ("Degree N"),
+        titlefont = font(10),
+        xticks = 1:K
+        )
+end 
+
+
+make_rhs_plot(12)
+
+@benchmark run_bernstein_dg(15, 2, $(get_bernstein_vandermonde(15)))
+@benchmark run_nodal_dg(15, 2, $(get_nodal_lift(15)))
