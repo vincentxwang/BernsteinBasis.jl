@@ -261,7 +261,6 @@ function make_plot(ratio_times)
     Plots.display(p)
 end
 
-
-advec = get_data(15, 200)
+advec = get_data(5, 200)
 
 make_plot(advec)
