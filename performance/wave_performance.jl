@@ -116,11 +116,13 @@ function rhs_matmat_mul!(du, u, params, t)
             end
         end
         
-        fxu .= fx.(u)
-        fyu .= fy.(u)
-        fzu .= fz.(u)
+
 
         @timeit "volume kernel" begin
+            fxu .= fx.(u)
+            fyu .= fy.(u)
+            fzu .= fz.(u)
+
             mul!(dfxdr, Dr, fxu)
             mul!(dfxds, Ds, fxu)
             mul!(dfxdt, Dt, fxu)
@@ -328,22 +330,35 @@ function get_data(K, samples)
             end
         end
 
-        if (!use_mul_only) 
-            for i in 1:samples
-                reset_timer!()
-                rhs_matmat_mymul!(similar(u0), u0, params, 0)
-    
-                if i == 1 || extract_times(TimerOutputs.get_defaulttimer())[3] <= time3[3]
-                    time3 = extract_times(TimerOutputs.get_defaulttimer())
-                end
-            end
+        for i in 1:samples
+            reset_timer!()
+            rhs_matmat_mymul!(similar(u0), u0, params, 0)
 
-            if time2[3] < time3[3]
-                use_mul_only = true
-            else 
-                time2 = time3
+            if i == 1 || extract_times(TimerOutputs.get_defaulttimer())[3] <= time3[3]
+                time3 = extract_times(TimerOutputs.get_defaulttimer())
             end
         end
+
+        if time2[3] > time3[3]
+            time2 = time3
+        end
+
+        # if (!use_mul_only) 
+        #     for i in 1:samples
+        #         reset_timer!()
+        #         rhs_matmat_mymul!(similar(u0), u0, params, 0)
+    
+        #         if i == 1 || extract_times(TimerOutputs.get_defaulttimer())[3] <= time3[3]
+        #             time3 = extract_times(TimerOutputs.get_defaulttimer())
+        #         end
+        #     end
+
+        #     if time2[3] < time3[3]
+        #         use_mul_only = true
+        #     else 
+        #         time2 = time3
+        #     end
+        # end
 
         ratio_times = vcat(ratio_times, (time2./time1)')
     end
@@ -382,6 +397,6 @@ function make_plot(ratio_times)
 end
 
 
-wave = get_data(15, 200)
+wave = get_data(5, 200)
 
 make_plot(wave)

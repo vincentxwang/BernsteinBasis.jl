@@ -190,11 +190,11 @@ function rhs_matmat_mymul!(du, u, params, t)
             end
         end
         
-        fxu .= fx.(u)
-        fyu .= fy.(u)
-        fzu .= fz.(u)
-
         @timeit "volume kernel" begin
+            fxu .= fx.(u)
+            fyu .= fy.(u)
+            fzu .= fz.(u)
+
             mymul!(dfxdr, Dr, fxu)
             mymul!(dfxds, Ds, fxu)
             mymul!(dfxdt, Dt, fxu)
@@ -215,7 +215,6 @@ function rhs_matmat_mymul!(du, u, params, t)
         @. du = du ./ md.J[1, 1]
     end
 end
-
 
 function get_nodal_lift(N)
     rd = RefElemData(Tet(), N)
@@ -399,7 +398,7 @@ function make_plot(ratio_times)
     Plots.display(p)
 end
 
-maxwell = get_data(15, 200)
+maxwell = get_data(5, 200)
 
 make_plot(maxwell)
 
