@@ -1,9 +1,7 @@
-# A Bernstein basis DG solver for the 3D advection equation, with
-# multithreading. Make sure that Julia is set to run on more than one thread.
+# A multithreading-friendly Bernstein basis DG solver for the 3D advection equation.
 
 using OrdinaryDiffEq
 using StartUpDG
-using Plots
 using LinearAlgebra
 using SparseArrays
 using BernsteinBasis

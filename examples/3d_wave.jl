@@ -3,17 +3,10 @@
 
 using OrdinaryDiffEq
 using StartUpDG
-using Plots
 using LinearAlgebra
 using SparseArrays
-using BernsteinBasis
 using StaticArrays
-
-# Wave equation
-# dpdt + du/dx + dv/dy + dw/dz = 0
-# dudt + dp/dx                 = 0
-# dvdt + dp/dy                 = 0
-# dwdt + dp/dz                 = 0
+using BernsteinBasis
 
 function fx(q)
     p, u, v, w = q
@@ -140,5 +133,4 @@ u_exact = @. SVector{4, Float64}(
     1/sqrt(3) * sin(pi * x) * cos(pi * y) * cos(pi * z) * sin(sqrt(3) * pi * tspan[2]), 
     1/sqrt(3) * cos(pi * x) * sin(pi * y) * cos(pi * z) * sin(sqrt(3) * pi * tspan[2]), 
     1/sqrt(3) * cos(pi * x) * cos(pi * y) * sin(pi * z) * sin(sqrt(3) * pi * tspan[2]))
-
 @show norm(u - u_exact, Inf)

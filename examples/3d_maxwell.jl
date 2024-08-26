@@ -3,11 +3,10 @@
 
 using OrdinaryDiffEq
 using StartUpDG
-using Plots
 using LinearAlgebra
 using SparseArrays
-using BernsteinBasis
 using StaticArrays
+using BernsteinBasis
 
 function fx(u)
     Hx, Hy, Hz, Ex, Ey, Ez = u
