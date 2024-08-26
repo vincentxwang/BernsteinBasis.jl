@@ -149,7 +149,8 @@ end
 """
     get_bernstein_lift(N)
 
-Returns an ``N``-degree 3D Bernstein lift matrix as a `Matrix` type, in contrast to `BernsteinLift(N)`.
+Returns an ``N``-degree 3D Bernstein lift matrix as a `Matrix` type, in contrast to the 
+more optimized `BernsteinLift(N)`.
 
 This function is derived from StartUpDG's `Tet()` struct.
 """

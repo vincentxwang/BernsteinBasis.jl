@@ -1,1 +1,1 @@
-# Example: Advection
+# Example: 1D advection

@@ -19,3 +19,5 @@ We define ``\mathbf{L}`` (synonymous with `BernsteinLift`) to be
 ```math
 \mathbf{L} = \left[ \begin{array}{c|c|c|c} \mathbf{L}^1 & \mathbf{L}^2 & \mathbf{L}^3 & \mathbf{L}^4 \end{array} \right].
 ```
+
+This `BernsteinLift` implementation transforms a vector in an optimal ``O(N^3)``, improving upon the typical ``O(N^5)`` time complexity of multiplying a dense nodal lift matrix by a vector.
