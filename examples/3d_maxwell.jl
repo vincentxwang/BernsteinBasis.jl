@@ -137,9 +137,6 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), dt = 0.01)
 
-using BenchmarkTools
-@btime rhs_matvec!($(similar(u0)), $(u0), $(params), 0)
-
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]
 
