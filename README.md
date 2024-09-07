@@ -7,9 +7,9 @@
 
 [This package](https://github.com/vincentxwang/BernsteinBasis.jl) contains performant reference element operators and algorithms for using a Bernstein basis in discontinuous Galerkin methods. The codes are based on [GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems](https://arxiv.org/abs/1512.06025) by Chan and Warburton (2017). Examples of using this package in DG solvers can be found in `/examples`.
 
-# Speed
+# Speedups
 
-This package features fast derivative and lift operators that transform in $O(n^3)$ instead of the typical $O(n^5)$ by exploiting density in operators using the Bernstein basis. Particularly, these operators have $\leq4$ elements per row, as can be seen below in the two figures from [GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems](https://arxiv.org/abs/1512.06025).
+This package features fast derivative and lift operators that transform in $O(n^3)$ instead of the typical $O(n^5)$ by exploiting density in operators using the Bernstein basis. Particularly, the derivative operator has $\leq4$ elements per row and the lift matrix has a recursive structure, as can be seen below in the two figures from [GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems](https://arxiv.org/abs/1512.06025).
 
 ![Graph demonstrating derivative matrix sparsity](assets/derivative.png)
 
