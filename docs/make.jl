@@ -19,7 +19,6 @@ makedocs(;
             "Derivative" => "derivative.md",
             "Lift" => "lift.md"
         ],
-        "Advection example" => "advection.md",
         "Full API" => "api.md",
     ],
 )
