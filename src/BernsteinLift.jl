@@ -130,7 +130,7 @@ end
 Multiplies `x` by the "nice" lift matrix face (``rs``-plane) of the lift matrix.
 
 # Arguments
-``x::AbstractVector``: Input vector
+- `x::AbstractVector`: Input vector
 
 - Chan, Jesse and Tim Warburton (2017)
   GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems
@@ -184,9 +184,9 @@ end
 Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
 
 # Arguments
-``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
-``L::BernsteinLift``: Order `N` Bernstein lift matrix
-``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
+- `out::AbstractVector`: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
+- `L::BernsteinLift`: Order ``N`` Bernstein lift matrix
+- `x::AbstractVector`: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
 """
 function LinearAlgebra.mul!(out::AbstractVector, L::BernsteinLift, x::AbstractVector)
     N = L.N
@@ -225,10 +225,10 @@ end
 Multiplies `x` by the Bernstein lift matrix `L`, as defined in documentation.
 
 # Arguments
-``out::AbstractVector``: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
-``L::BernsteinLift``: Order `N` Bernstein lift matrix
-``x::AbstractVector``: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
-``thread``: Thread id
+- `out::AbstractVector`: Length ``\frac{(N+1)(N+2)(N+3)}{6}`` vector
+- `L::BernsteinLift`: Order ``N`` Bernstein lift matrix
+- `x::AbstractVector`: Length ``2 \\cdot \frac{(N+1)(N+2)}{2}`` vector
+- `thread`: Thread id
 """
 function threaded_mul!(out::AbstractVector{T}, L::MultithreadedBernsteinLift, x::AbstractVector{T}, thread) where {T}
     N = L.N

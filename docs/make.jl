@@ -16,10 +16,9 @@ makedocs(;
         "Home" => "index.md",
         "Notations and conventions" => "notation.md",
         "Operators" => [
-            "Derivative" => "derivative.md"
+            "Derivative" => "derivative.md",
             "Lift" => "lift.md"
         ],
-        "Advection example" => "advection.md",
         "Full API" => "api.md",
     ],
 )

@@ -1,6 +1,6 @@
 """
     l_j(N)
-Returns a tuple containing ``l_1, ..., l_N,(..., l_20)`` as specified by the lift
+Returns a tuple containing ``l_1, ..., l_N, ..., l_{20}`` as specified by the lift
 matrix multiplication algorithm in
 
 - Chan, Jesse and Tim Warburton (2017)

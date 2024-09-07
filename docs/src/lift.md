@@ -10,9 +10,11 @@ where ``\mathbf{M}`` and ``\mathbf{M}^f`` are the Bernstein mass matrices define
 ```math
 \begin{aligned}
 \mathbf{M}_{i,j} &= \int_{\hat{D}} \phi_{i} \phi_{j} \\
-\mathbf{M}_{i,j}^f &= \int_{f_{\hat{D}}} \phi_{i} \phi_{j}. \\
+\mathbf{M}_{i,j}^f &= \int_{f_{\hat{D}}} \phi_{i} \varphi_{j}. \\
 \end{aligned}
 ```
+
+where ``\{\varphi_j\}_{j=1}^{j=\frac{N(N+1)}{2}}`` is the subset of ``\{\phi_j\}_{j=1}^{j=\frac{N(N+1)(N+2)}{6}}`` that is *not* constantly zero on ``f``, or the trace of the polynomial space.
 
 We define ``\mathbf{L}`` (synonymous with `BernsteinLift`) to be
 

@@ -1,5 +1,4 @@
 # A Bernstein basis DG solver for the 3D Maxwell's equation.
-# Reference: Hesthaven and Warburton pg. 432-437
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -7,6 +6,16 @@ using LinearAlgebra
 using SparseArrays
 using StaticArrays
 using BernsteinBasis
+
+###############################################################################
+# Reference: Hesthaven and Warburton pg. 432-437
+# Let u represent the state of the system where u = (Hx, Hy, Hz, Ex, Ey, Ez), where
+# Hx, Hy, Hz, Ex, Ey, Ez are functions of x, y, z, t.
+#
+# We frame the problem as
+#
+# du/dt + dfx(u)/dx + dfy(u)/dy + dfz(u)/dz = 0.
+# where fx(u) = (0, Ez, -Ey, 0, -Hz, Hy), fy(u) = (-Ez, 0, Ex, Hz, 0, -Hx), fz = (Ey, -Ex, 0, -Hy, Hx, 0).
 
 function fx(u)
     Hx, Hy, Hz, Ex, Ey, Ez = u
@@ -127,9 +136,6 @@ params = (; rd, md, Dr, Ds, Dt, LIFT, cache)
 # Solve ODE system
 ode = ODEProblem(rhs_matvec!, modal_u0, tspan, params)
 sol = solve(ode, Tsit5(), saveat=LinRange(tspan..., 25), dt = 0.01)
-
-using BenchmarkTools
-@btime rhs_matvec!($(similar(u0)), $(u0), $(params), 0)
 
 # Convert Bernstein coefficients back to point evaluations
 u = vande * sol.u[end]

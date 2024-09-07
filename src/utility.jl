@@ -2,7 +2,7 @@
     cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords)
     cartesian_to_barycentric(elem::Union{Line, Tri, Tet}, coords...)
 
-Converts a `DIMS` ``\times N_p`` matrix of cartesian coordinates into a matrix of barycentric coordinates.
+Converts a `DIMS` by ``N_p`` matrix of cartesian coordinates into a matrix of barycentric coordinates.
 Alternatively, also takes in `DIMS` number of vectors of coordinates.
 """
 function cartesian_to_barycentric(::Line, coords::AbstractMatrix)

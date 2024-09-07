@@ -1,5 +1,7 @@
 # Notation and conventions
 
+Generally, we follow the same conventions as [GPU-accelerated Bernstein-Bezier discontinuous Galerkin methods for wave problems (Chan and Warburton 2017)](https://arxiv.org/abs/1512.06025).
+
 ## Reference tetrahedron
 
 We define our reference tetrahedron ``\hat{D}`` in ``rst``-space by

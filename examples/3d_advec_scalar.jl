@@ -1,12 +1,18 @@
 # A Bernstein basis DG solver for the 3D advection equation.
-# Simplification of the 3d_advec.jl implementation that only considers a scalar field
-# (i.e. the "x" direction).
+# Simplification of the 3d_advec.jl implementation that only considers a scalar field.
 
 using OrdinaryDiffEq
 using StartUpDG
 using LinearAlgebra
 using SparseArrays
 using BernsteinBasis
+
+###############################################################################
+# Let u(x,t) be scalar.
+#
+# We solve:
+#
+# du/dt + du/dx = 0.
 
 function rhs_matvec!(du, u, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params

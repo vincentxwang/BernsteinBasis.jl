@@ -1,6 +1,5 @@
 module BernsteinBasis
 
-using BenchmarkTools
 using StartUpDG
 using SparseArrays
 using StaticArrays

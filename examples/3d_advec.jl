@@ -8,18 +8,27 @@ using SparseArrays
 using StaticArrays
 using BernsteinBasis
 
+###############################################################################
+# Let q represent the state of the system where q = (u, v, w), where u, v, w
+# are functions of x, y, z, t.
+#
+# We frame the problem as
+#
+# du/dt + dfx(q)/dx + dfy(q)/dy + dfz(q)/dz = 0.
+# where fx(q) = (u, 0, 0), fy(q) = (0, 0, 0), fz(q) = (0, 0, 0).
+
 function fx(q)
-    x, y, z = q
-    return SVector(x, 0, 0)
+    u, v, w = q
+    return SVector(u, 0, 0)
 end
 
 function fy(q)
-    x, y, z = q
+    u, v, w = q
     return SVector(0, 0, 0)
 end
 
 function fz(q)
-    x, y, z = q
+    u, v, w = q
     return SVector(0, 0, 0)
 end
 

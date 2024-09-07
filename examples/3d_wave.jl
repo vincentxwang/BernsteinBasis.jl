@@ -1,5 +1,4 @@
 # A Bernstein basis DG solver for the 3D acoustic wave equation.
-# Reference: https://arxiv.org/pdf/1512.06025
 
 using OrdinaryDiffEq
 using StartUpDG
@@ -7,6 +6,16 @@ using LinearAlgebra
 using SparseArrays
 using StaticArrays
 using BernsteinBasis
+
+###############################################################################
+# Reference: https://arxiv.org/pdf/1512.06025
+# Let q represent the state of the system where q = (p, u, v, w), where p, u, v, w
+# are functions of x, y, z, t.
+#
+# We frame the problem as
+#
+# dq/dt + dfx(q)/dx + dfy(q)/dy + dfz(q)/dz = 0.
+# where fx(q) = (u, p, 0, 0), fy(q) = (v, 0, p, 0), fz = (w, 0, 0, p).
 
 function fx(q)
     p, u, v, w = q
@@ -23,13 +32,13 @@ function fz(q)
     return SVector(w, 0, 0, p)
 end
 
-# Computes d(p, u, v, w)/dt as a function of u = (p, u, v, w). (note two u's are not the same).
-function rhs_matvec!(du, u, params, t)
+# Computes d(p, u, v, w)/dt as a function of q = (p, u, v, w).
+function rhs_matvec!(du, q, params, t)
     (; rd, md, Dr, Ds, Dt, LIFT) = params
     
     (; uM, interface_flux, duM, dfxdr, dfxds, dfxdt, dfydr, dfyds, dfydt, dfzdr, dfzds, dfzdt, fxu, fyu, fzu) = params.cache
     
-    uM .= view(u, rd.Fmask, :)
+    uM .= view(q, rd.Fmask, :)
 
     @inbounds for e in axes(uM, 2)
         for i in axes(uM, 1)
@@ -47,9 +56,9 @@ function rhs_matvec!(du, u, params, t)
     end
 
     @inbounds for e in axes(du, 2)
-        fxu .= fx.(view(u, :, e))
-        fyu .= fy.(view(u, :, e))
-        fzu .= fz.(view(u, :, e))
+        fxu .= fx.(view(q, :, e))
+        fyu .= fy.(view(q, :, e))
+        fzu .= fz.(view(q, :, e))
 
         mul!(view(dfxdr, :, e), Dr, fxu)
         mul!(view(dfxds, :, e), Ds, fxu)
